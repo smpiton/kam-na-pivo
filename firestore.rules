@@ -1,6 +1,13 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Владелец сайта (вход через Google): может очистить все встречи.
+    function isOwner() {
+      return request.auth != null
+        && request.auth.uid == 't9piahogv5OzBnAn6K7pzdXUOyC3'
+        && request.auth.token.firebase.sign_in_provider == 'google.com';
+    }
+
     // Каждая встреча — rooms/<id>, у каждого участника один документ со своими точками.
     match /rooms/{room}/people/{uid} {
       allow read: if true;
@@ -11,7 +18,12 @@ service cloud.firestore {
         && request.resource.data.nick.size() <= 40
         && request.resource.data.points is list
         && request.resource.data.points.size() <= 20;
-      allow delete: if request.auth != null && request.auth.uid == uid;
+      allow delete: if request.auth != null && (request.auth.uid == uid || isOwner());
+    }
+
+    // Поиск по всем встречам сразу — только для владельца (кнопка «Очистить все встречи»).
+    match /{path=**}/people/{uid} {
+      allow read, delete: if isOwner();
     }
   }
 }

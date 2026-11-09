@@ -75,6 +75,7 @@ input[type=text]:focus{border-color:var(--accent);outline:none}
 .wipe-open{align-self:flex-start;padding:2px 0;font-size:12.5px;text-decoration:underline;text-underline-offset:3px}
 .wipe-confirm{border:1px solid var(--danger);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:10px}
 .wipe-confirm p{margin:0;font-size:13px}
+.admin{border-top:1px dashed var(--line);padding-top:14px}
 .btn:disabled{opacity:.5;cursor:not-allowed}
 .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 
@@ -216,6 +217,18 @@ ol.res li.all .bar i{background:var(--bottle)}
       </div>
       <div class="summary" id="summary"></div>
       <ol class="res" id="results"></ol>
+    </section>
+    <section class="admin" id="admin" hidden aria-labelledby="admH">
+      <div class="eyebrow" id="admH">Владелец сайта</div>
+      <button class="btn ghost wipe-open" id="clearOpen" type="button">Очистить все встречи</button>
+      <div class="wipe-confirm" id="clearConfirm" hidden>
+        <p>Удалятся точки и имена во всех встречах у всех участников. Отменить это нельзя. Нужно войти через Google как владелец.</p>
+        <div class="row">
+          <button class="btn danger" id="clearYes" type="button">Войти и удалить всё</button>
+          <button class="btn" id="clearNo" type="button">Отмена</button>
+        </div>
+        <p class="hint" id="clearMsg" role="status"></p>
+      </div>
     </section>
   </aside>
   <div class="mapwrap">
@@ -599,8 +612,46 @@ function setupRoom(){
   $("newRoomBtn").onclick=()=>{ const r=newRoomId(); markOwner(r); location.hash=r; };
 }
 
+/* owner-only: wipe every meetup. Visible at the bare site URL; Firestore rules decide who may actually delete. */
+function setupAdmin(atRoot){
+  if(!atRoot) return;
+  $("admin").hidden=false;
+  const msg=t=>{ $("clearMsg").textContent=t; };
+  $("clearOpen").onclick=()=>{ $("clearConfirm").hidden=false; msg(""); };
+  $("clearNo").onclick=()=>{ $("clearConfirm").hidden=true; };
+  $("clearYes").onclick=async()=>{
+    if(!S.online||!window.firebase){ msg("Нет связи с Firebase."); return; }
+    const btn=$("clearYes"); btn.disabled=true;
+    try{
+      msg("Входим через Google…");
+      const cred=await firebase.auth().signInWithPopup(new firebase.auth.GoogleAuthProvider());
+      console.info("admin uid:", cred.user.uid);
+      msg("Ищем встречи…");
+      const fdb=firebase.firestore();
+      const snap=await fdb.collectionGroup("people").get();
+      let n=0;
+      for(let i=0;i<snap.docs.length;i+=400){
+        const b=fdb.batch(); snap.docs.slice(i,i+400).forEach(d=>b.delete(d.ref)); await b.commit(); n+=Math.min(400,snap.docs.length-i);
+      }
+      const rooms=new Set(snap.docs.map(d=>d.ref.parent.parent.id)).size;
+      msg(`Готово: удалено ${n} ${plural(n,"участник","участника","участников")} из ${rooms} ${plural(rooms,"встречи","встреч","встреч")}.`);
+      await firebase.auth().signOut();
+      setTimeout(()=>location.reload(),2500);
+    }catch(e){
+      const c=e?.code||"";
+      if(c==="permission-denied") msg("Это может сделать только владелец сайта.");
+      else if(c==="auth/popup-closed-by-user"||c==="auth/cancelled-popup-request") msg("Вход отменён.");
+      else if(c==="auth/popup-blocked") msg("Браузер заблокировал окно входа — разреши всплывающие окна для этого сайта.");
+      else msg("Не получилось: "+(c||e?.message||"ошибка"));
+      try{ if(firebase.auth().currentUser && !firebase.auth().currentUser.isAnonymous){ await firebase.auth().signOut(); setTimeout(()=>location.reload(),2500); } }catch(_){}
+    }finally{ btn.disabled=false; }
+  };
+}
+
 async function bootGithub(){
+  const atRoot=!readRoom();
   setupRoom();
+  setupAdmin(atRoot);
   const cfg=window.FIREBASE_CONFIG;
   if(!window.firebase || !cfg || !cfg.apiKey || String(cfg.apiKey).includes("ВСТАВЬ")) return goLocal("Firebase не настроен: точки сохраняются только в этом браузере.");
   try{
