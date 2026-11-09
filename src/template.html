@@ -660,9 +660,13 @@ function setupAdmin(atRoot){
         const b=fdb.batch(); snap.docs.slice(i,i+400).forEach(d=>b.delete(d.ref)); await b.commit(); n+=Math.min(400,snap.docs.length-i);
       }
       const rooms=new Set(snap.docs.map(d=>d.ref.parent.parent.id)).size;
-      msg(`Готово: удалено ${n} ${plural(n,"участник","участника","участников")} из ${rooms} ${plural(rooms,"встречи","встреч","встреч")}.`);
+      let local=0;
+      try{ const ks=[]; for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k&&(k.startsWith("kp_owner_")||k.startsWith("kp_local"))) ks.push(k); } ks.forEach(k=>localStorage.removeItem(k)); local=ks.filter(k=>k.startsWith("kp_owner_")).length; }catch(_){}
+      $("myRooms").replaceChildren(); $("myRoomsH").hidden=true;
+      msg(n ? `Готово: на сервере удалено ${n} ${plural(n,"участник","участника","участников")} из ${rooms} ${plural(rooms,"встречи","встреч","встреч")}, список «Мои встречи» очищен.`
+            : `На сервере точек не было — база уже пустая. Список «Мои встречи» (${local}) очищен.`);
       await firebase.auth().signOut();
-      setTimeout(()=>location.reload(),2500);
+      setTimeout(()=>location.reload(),6000);
     }catch(e){
       const c=e?.code||"";
       if(c==="permission-denied") msg("Это может сделать только владелец сайта.");
