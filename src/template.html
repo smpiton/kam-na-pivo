@@ -70,6 +70,11 @@ input[type=text]:focus{border-color:var(--accent);outline:none}
 .btn.primary.armed{background:var(--ink);border-color:var(--ink);color:var(--panel)}
 .btn.ghost{background:transparent;border-color:transparent;color:var(--muted);padding:4px 6px}
 .btn.ghost:hover{color:var(--danger)}
+.btn.danger{background:var(--danger);border-color:var(--danger);color:var(--panel)}
+.wipe{display:flex;flex-direction:column;gap:8px}
+.wipe-open{align-self:flex-start;padding:2px 0;font-size:12.5px;text-decoration:underline;text-underline-offset:3px}
+.wipe-confirm{border:1px solid var(--danger);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:10px}
+.wipe-confirm p{margin:0;font-size:13px}
 .btn:disabled{opacity:.5;cursor:not-allowed}
 .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 
@@ -186,6 +191,16 @@ ol.res li.all .bar i{background:var(--bottle)}
       </div>
       <div class="bill" id="myPoints"></div>
       <p class="hint">Вес от 1 до 10 — это čárky, как на účtence: чем больше палочек, тем сильнее тебе хочется именно туда. Точку можно перетащить на карте.</p>
+      <div class="wipe" id="wipe" hidden>
+        <button class="btn ghost wipe-open" id="wipeOpen" type="button">Удалить мои данные</button>
+        <div class="wipe-confirm" id="wipeConfirm" hidden>
+          <p>Твоё имя и все точки пропадут из этой встречи у всех. Отменить это нельзя.</p>
+          <div class="row">
+            <button class="btn danger" id="wipeYes" type="button">Удалить</button>
+            <button class="btn" id="wipeNo" type="button">Отмена</button>
+          </div>
+        </div>
+      </div>
     </section>
 
     <section aria-labelledby="pplH">
@@ -435,6 +450,7 @@ function renderMine(){
   });
   if(!S.points.length) box.append(el("div",{class:"empty"}, el("b",{text:"Пока пусто. "}), "Нажми «Поставить точку» и ткни в карту — например, рядом с работой или домом. Точек может быть несколько."));
   $("addBtn").disabled=S.readOnly;
+  $("wipe").hidden = S.readOnly || !(S.points.length || S.nick);
   $("addBtn").classList.toggle("armed",S.placing);
   $("addBtn").textContent = S.placing? "Отмена" : "＋ Поставить точку";
 }
@@ -492,7 +508,7 @@ map.on("click",e=>{
   S.points.push(q); S.selected=q.id; S.placing=false; changed();
 });
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&S.placing){S.placing=false;render();}});
-$("nick").addEventListener("input",e=>{S.nick=e.target.value.slice(0,40);changed(true);});
+$("nick").addEventListener("input",e=>{S.nick=e.target.value.slice(0,40);$("wipe").hidden=S.readOnly||!(S.points.length||S.nick);changed(true);});
 $("modeFair").onclick=()=>{S.mode="fair";try{localStorage.setItem("kp_mode","fair")}catch(e){};render();};
 $("modeAvg").onclick=()=>{S.mode="avg";try{localStorage.setItem("kp_mode","avg")}catch(e){};render();};
 
@@ -514,6 +530,24 @@ function flush(){
     }
   });
 }
+function wipeMine(){
+  clearTimeout(saveTimer); dirty=false;
+  const btn=$("wipeYes"); btn.disabled=true;
+  saving=saving.then(async()=>{
+    try{
+      if(S.online && S.remove) await S.remove();
+      try{ localStorage.removeItem(localKey()); }catch(e){}
+      S.points=[]; S.nick=""; S.selected=null; S.placing=false; $("nick").value="";
+      $("wipeConfirm").hidden=true;
+      setStatus("ok", S.online? "Твои данные удалены из этой встречи" : "Твои точки удалены из этого браузера");
+      render();
+    }catch(e){ setStatus("warn","Не удалось удалить — проверь соединение и попробуй ещё раз"); }
+    finally{ btn.disabled=false; }
+  });
+}
+$("wipeOpen").onclick=()=>{ $("wipeConfirm").hidden=false; $("wipeYes").focus(); };
+$("wipeNo").onclick=()=>{ $("wipeConfirm").hidden=true; };
+$("wipeYes").onclick=wipeMine;
 function setStatus(kind,text){ $("status").className="status "+(kind||""); $("statusText").textContent=text; }
 
 function loadLocal(){ try{ const d=JSON.parse(localStorage.getItem(localKey())||"null"); if(d){ S.nick=String(d.nick||"").slice(0,40); S.points=sanitizePoints(d.points); } }catch(e){} $("nick").value=S.nick; }
@@ -544,7 +578,7 @@ async function bootClaude(){
   S.user=user;
   const myId = user ? await user.id() : null;
   if(!db||!myId) return goLocal("Офлайн: точки сохраняются только в этом браузере. Войди в Claude, чтобы видеть друзей.");
-  S.myId=myId; S.online=true; S.save=body=>db.doc("people/"+myId).set(body);
+  S.myId=myId; S.online=true; S.save=body=>db.doc("people/"+myId).set(body); S.remove=()=>db.doc("people/"+myId).delete();
   if(user.can){ try{ if(await user.can("data.write")===false){ S.readOnly=true; } }catch(e){} }
   subscribePeople(db.collection("people"));
 }
@@ -574,7 +608,7 @@ async function bootGithub(){
     await firebase.auth().signInAnonymously();
     const uidF=firebase.auth().currentUser.uid;
     const col=firebase.firestore().collection("rooms").doc(S.room).collection("people");
-    S.myId=uidF; S.online=true; S.save=body=>col.doc(uidF).set(body);
+    S.myId=uidF; S.online=true; S.save=body=>col.doc(uidF).set(body); S.remove=()=>col.doc(uidF).delete();
     subscribePeople(col);
   }catch(e){ console.error(e); goLocal("Не удалось подключиться к Firebase ("+(e?.code||"ошибка")+"). Точки пока только в этом браузере."); }
 }
