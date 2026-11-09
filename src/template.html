@@ -76,6 +76,10 @@ input[type=text]:focus{border-color:var(--accent);outline:none}
 .wipe-confirm{border:1px solid var(--danger);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:10px}
 .wipe-confirm p{margin:0;font-size:13px}
 .admin{border-top:1px dashed var(--line);padding-top:14px}
+.myrooms{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+.myrooms a{display:flex;justify-content:space-between;gap:10px;padding:7px 8px;border-radius:8px;color:var(--ink);text-decoration:none}
+.myrooms a:hover{background:var(--bg)}
+.myrooms small{color:var(--muted);font-family:var(--f-mono);font-size:11.5px}
 .btn:disabled{opacity:.5;cursor:not-allowed}
 .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 
@@ -180,7 +184,15 @@ ol.res li.all .bar i{background:var(--bottle)}
       </div>
     </header>
 
-    <section aria-labelledby="meH">
+    <section class="lobby" id="lobby" hidden aria-labelledby="lobH">
+      <div class="eyebrow" id="lobH">Новая встреча</div>
+      <p class="hint">Создай встречу, отправь ссылку друзьям, и каждый отметит, где ему удобно.</p>
+      <div class="row"><button class="btn primary" id="createRoomBtn" type="button">Создать встречу</button></div>
+      <div class="eyebrow" id="myRoomsH" hidden>Мои встречи</div>
+      <ul class="myrooms" id="myRooms"></ul>
+    </section>
+
+    <section aria-labelledby="meH" data-room>
       <div class="eyebrow" id="meH">Твои точки <span id="meCount"></span></div>
       <div class="field">
         <label for="nick">Как тебя подписать</label>
@@ -204,12 +216,12 @@ ol.res li.all .bar i{background:var(--bottle)}
       </div>
     </section>
 
-    <section aria-labelledby="pplH">
+    <section aria-labelledby="pplH" data-room>
       <div class="eyebrow" id="pplH">Компания <span id="pplCount"></span></div>
       <div class="people" id="people"></div>
     </section>
 
-    <section aria-labelledby="resH">
+    <section aria-labelledby="resH" data-room>
       <div class="eyebrow" id="resH">Куда идём</div>
       <div class="seg" role="group" aria-label="Как считать">
         <button type="button" id="modeFair" aria-pressed="true">Чтобы всем было норм</button>
@@ -600,16 +612,30 @@ async function bootClaude(){
 function readRoom(){ const m=/^#(r-[a-z0-9]{6,16})$/.exec(location.hash); return m?m[1]:null; }
 function newRoomId(){ const a=new Uint8Array(6); crypto.getRandomValues(a); return "r-"+Array.from(a,b=>(b%36).toString(36)).join("")+uid().slice(0,2); }
 function setupRoom(){
-  const ownKey=r=>"kp_owner_"+r;
-  const markOwner=r=>{ try{ localStorage.setItem(ownKey(r),"1"); }catch(e){} };
   S.room=readRoom();
-  if(!S.room){ S.room=newRoomId(); markOwner(S.room); history.replaceState(null,"",location.pathname+location.search+"#"+S.room); }
-  let owner=false; try{ owner=localStorage.getItem(ownKey(S.room))==="1"; }catch(e){}
-  addEventListener("hashchange",()=>location.reload());
+  let owner=false; try{ owner=localStorage.getItem(ownKey(S.room))!=null; }catch(e){}
   if(!owner) return;   // friends who came by link see neither the link box nor "new meetup"
   $("share").hidden=false; $("shareUrl").value=location.href;
   $("copyBtn").onclick=async()=>{ try{ await navigator.clipboard.writeText(location.href); $("copyBtn").textContent="Скопировано"; }catch(e){ $("shareUrl").select(); $("copyBtn").textContent="Выделено — Ctrl/⌘+C"; } setTimeout(()=>$("copyBtn").textContent="Скопировать",2000); };
-  $("newRoomBtn").onclick=()=>{ const r=newRoomId(); markOwner(r); location.hash=r; };
+  $("newRoomBtn").onclick=createRoom;
+}
+const ownKey=r=>"kp_owner_"+r;
+function markOwner(r){ try{ localStorage.setItem(ownKey(r),String(Date.now())); }catch(e){} }
+function createRoom(){ const r=newRoomId(); markOwner(r); location.hash=r; }
+
+/* start page at the bare URL: create a meetup, reopen your own, owner tools */
+function setupLobby(){
+  document.querySelectorAll("[data-room]").forEach(e=>e.hidden=true);
+  $("lobby").hidden=false; $("legend").hidden=true;
+  $("createRoomBtn").onclick=createRoom;
+  const mine=[];
+  try{ for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k&&k.startsWith("kp_owner_")) mine.push([k.slice(9), +localStorage.getItem(k)||0]); } }catch(e){}
+  mine.sort((a,b)=>b[1]-a[1]);
+  $("myRoomsH").hidden=!mine.length;
+  for(const [r,t] of mine.slice(0,15)){
+    $("myRooms").append(el("li",{}, el("a",{href:"#"+r}, el("span",{text:"Встреча "+r.slice(2)}), el("small",{text: t>1e12? new Date(t).toLocaleDateString("ru-RU",{day:"numeric",month:"short"}) : ""}))));
+  }
+  setStatus("", "Создай встречу или открой одну из своих");
 }
 
 /* owner-only: wipe every meetup. Visible at the bare site URL; Firestore rules decide who may actually delete. */
@@ -650,14 +676,16 @@ function setupAdmin(atRoot){
 
 async function bootGithub(){
   const atRoot=!readRoom();
-  setupRoom();
-  setupAdmin(atRoot);
+  addEventListener("hashchange",()=>location.reload());
+  if(atRoot){ setupLobby(); setupAdmin(true); }
+  else setupRoom();
   const cfg=window.FIREBASE_CONFIG;
-  if(!window.firebase || !cfg || !cfg.apiKey || String(cfg.apiKey).includes("ВСТАВЬ")) return goLocal("Firebase не настроен: точки сохраняются только в этом браузере.");
+  if(!window.firebase || !cfg || !cfg.apiKey || String(cfg.apiKey).includes("ВСТАВЬ")) return atRoot ? null : goLocal("Firebase не настроен: точки сохраняются только в этом браузере.");
   try{
     firebase.initializeApp(cfg);
     await firebase.auth().signInAnonymously();
     const uidF=firebase.auth().currentUser.uid;
+    if(atRoot){ S.online=true; return; }
     const col=firebase.firestore().collection("rooms").doc(S.room).collection("people");
     S.myId=uidF; S.online=true; S.save=body=>col.doc(uidF).set(body); S.remove=()=>col.doc(uidF).delete();
     subscribePeople(col);
