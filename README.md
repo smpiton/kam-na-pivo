@@ -20,7 +20,7 @@
 4. В Firestore открой вкладку **Rules**, вставь содержимое `firestore.rules` и нажми **Publish**.
 5. **Project settings** (шестерёнка) → **Your apps** → иконка `</>` (Web) → любое имя → **Register app**.
    Скопируй значения из `firebaseConfig` в `firebase-config.js`.
-6. **Authentication → Settings → Authorized domains → Add domain**: `ТВОЙНИК.github.io`.
+6. **Authentication → Settings → Authorized domains → Add domain**: `smpiton.github.io`.
 
 Ключи в `firebase-config.js` не секретные: доступ защищают правила из шага 4.
 
@@ -30,12 +30,12 @@
 2. В этой папке выполни:
 
    ```bash
-   git remote add origin https://github.com/ТВОЙНИК/kam-na-pivo.git
+   git remote add origin https://github.com/smpiton/kam-na-pivo.git
    git push -u origin main
    ```
 
 3. В репозитории открой **Settings → Pages → Source: Deploy from a branch → main / (root) → Save**.
-4. Через минуту сайт заработает по адресу `https://ТВОЙНИК.github.io/kam-na-pivo/`.
+4. Через минуту сайт заработает по адресу `https://smpiton.github.io/kam-na-pivo/`.
    При первом открытии страница сама создаст ссылку на встречу. Скопируй её и отправь друзьям.
 
 ## Пересборка
