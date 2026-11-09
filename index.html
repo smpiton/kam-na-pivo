@@ -1225,12 +1225,16 @@ async function bootClaude(){
 function readRoom(){ const m=/^#(r-[a-z0-9]{6,16})$/.exec(location.hash); return m?m[1]:null; }
 function newRoomId(){ const a=new Uint8Array(6); crypto.getRandomValues(a); return "r-"+Array.from(a,b=>(b%36).toString(36)).join("")+uid().slice(0,2); }
 function setupRoom(){
+  const ownKey=r=>"kp_owner_"+r;
+  const markOwner=r=>{ try{ localStorage.setItem(ownKey(r),"1"); }catch(e){} };
   S.room=readRoom();
-  if(!S.room){ S.room=newRoomId(); history.replaceState(null,"",location.pathname+location.search+"#"+S.room); }
+  if(!S.room){ S.room=newRoomId(); markOwner(S.room); history.replaceState(null,"",location.pathname+location.search+"#"+S.room); }
+  let owner=false; try{ owner=localStorage.getItem(ownKey(S.room))==="1"; }catch(e){}
+  addEventListener("hashchange",()=>location.reload());
+  if(!owner) return;   // friends who came by link see neither the link box nor "new meetup"
   $("share").hidden=false; $("shareUrl").value=location.href;
   $("copyBtn").onclick=async()=>{ try{ await navigator.clipboard.writeText(location.href); $("copyBtn").textContent="Скопировано"; }catch(e){ $("shareUrl").select(); $("copyBtn").textContent="Выделено — Ctrl/⌘+C"; } setTimeout(()=>$("copyBtn").textContent="Скопировать",2000); };
-  $("newRoomBtn").onclick=()=>{ location.hash=newRoomId(); };
-  addEventListener("hashchange",()=>location.reload());
+  $("newRoomBtn").onclick=()=>{ const r=newRoomId(); markOwner(r); location.hash=r; };
 }
 
 async function bootGithub(){
