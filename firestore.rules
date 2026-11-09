@@ -1,0 +1,17 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Каждая встреча — rooms/<id>, у каждого участника один документ со своими точками.
+    match /rooms/{room}/people/{uid} {
+      allow read: if true;
+      allow create, update: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['nick', 'points', 'updatedAt'])
+        && request.resource.data.nick is string
+        && request.resource.data.nick.size() <= 40
+        && request.resource.data.points is list
+        && request.resource.data.points.size() <= 20;
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+  }
+}

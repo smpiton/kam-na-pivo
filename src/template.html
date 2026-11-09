@@ -1,0 +1,589 @@
+<title>Kam na pivo</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600&family=JetBrains+Mono:wght@400;600&family=Unbounded:wght@500;700&display=swap">
+<style>
+/*__LEAFLET_CSS__*/
+</style>
+<style>
+/* Layout: one-screen tool — a paper "účtenka" side panel beside a tile-less vector map of Prague; stacks map-over-panel on phones. */
+:root{
+  --bg:#EEF1EC; --panel:#F9FAF7; --ink:#18221D; --muted:#5B6961; --line:#D4DBD4;
+  --accent:#B4741A; --accent-soft:#F3E3C6; --accent-ink:#FFFFFF;
+  --bottle:#1F5A40; --bottle-soft:#DCEBE2;
+  --land:#F5F4EE; --outside:#E4E7E0; --river:#8DB4CE; --road:#DCD5C4; --road-major:#CDBE98; --border:#9AA79F;
+  --pub:#7B6A55; --danger:#A23B2C;
+  --f-display:"Unbounded","Golos Text",system-ui,sans-serif;
+  --f-body:"Golos Text",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#111713; --panel:#172019; --ink:#E4EBE6; --muted:#93A39A; --line:#2A362F;
+  --accent:#E2A64A; --accent-soft:#3B2F1B; --accent-ink:#1A1408;
+  --bottle:#62B98F; --bottle-soft:#1D3328;
+  --land:#18211C; --outside:#101612; --river:#2E5A75; --road:#2D3832; --road-major:#4A4A38; --border:#55665C;
+  --pub:#A99A86; --danger:#E27A68; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#111713; --panel:#172019; --ink:#E4EBE6; --muted:#93A39A; --line:#2A362F;
+  --accent:#E2A64A; --accent-soft:#3B2F1B; --accent-ink:#1A1408;
+  --bottle:#62B98F; --bottle-soft:#1D3328;
+  --land:#18211C; --outside:#101612; --river:#2E5A75; --road:#2D3832; --road-major:#4A4A38; --border:#55665C;
+  --pub:#A99A86; --danger:#E27A68; color-scheme:dark}
+
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.45}
+*{box-sizing:border-box}
+button,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.app{height:100%;display:grid;grid-template-columns:minmax(320px,380px) 1fr;}
+.panel{background:var(--panel);border-right:1px solid var(--line);overflow-y:auto;min-width:0;
+  padding-block:20px 28px;padding-left:max(18px,env(safe-area-inset-left,0px));padding-right:18px;
+  display:flex;flex-direction:column;gap:22px}
+.mapwrap{position:relative;min-width:0}
+#map{position:absolute;inset:0;background:var(--outside)}
+
+header h1{font-family:var(--f-display);font-weight:700;font-size:26px;letter-spacing:-.01em;margin:0;line-height:1.1}
+header p{margin:6px 0 0;color:var(--muted);max-width:60ch;text-wrap:pretty}
+.status{font-size:12px;color:var(--muted);display:flex;gap:6px;align-items:center;margin-top:8px}
+.share{display:flex;flex-direction:column;gap:6px;margin-top:14px;padding:12px;border:1px dashed var(--line);border-radius:10px}
+.share label{font-size:12px;color:var(--muted)}
+.share .row{flex-wrap:nowrap}
+.share input{font-family:var(--f-mono);font-size:12px;min-width:0}
+.btn.ghost.newroom{align-self:flex-start;padding:2px 0;font-size:12.5px}
+.btn.ghost.newroom:hover{color:var(--accent)}
+.status .dot{width:7px;height:7px;border-radius:50%;background:var(--muted)}
+.status.ok .dot{background:var(--bottle)} .status.warn .dot{background:var(--accent)}
+
+section{display:flex;flex-direction:column;gap:10px}
+.eyebrow{font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:600;display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.eyebrow span{text-transform:none;letter-spacing:0;font-weight:400}
+
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:12px;color:var(--muted)}
+input[type=text]{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;width:100%}
+input[type=text]:focus{border-color:var(--accent);outline:none}
+
+.btn{border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:8px 12px;cursor:pointer;font-weight:500}
+.btn:hover{border-color:var(--ink)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary.armed{background:var(--ink);border-color:var(--ink);color:var(--panel)}
+.btn.ghost{background:transparent;border-color:transparent;color:var(--muted);padding:4px 6px}
+.btn.ghost:hover{color:var(--danger)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+
+/* my points: rows on a bill */
+.bill{display:flex;flex-direction:column;border-top:1px dashed var(--line)}
+.pt{display:grid;grid-template-columns:auto 1fr auto;gap:6px 10px;align-items:center;padding:10px 0;border-bottom:1px dashed var(--line);cursor:pointer}
+.pt.sel{background:linear-gradient(90deg,var(--accent-soft),transparent 80%);margin-inline:-8px;padding-inline:8px;border-radius:6px}
+.pt .num{font-family:var(--f-mono);font-size:12px;color:var(--muted);width:22px}
+.pt .ttl{font-weight:500}
+.pt .sub{grid-column:2 / 4;display:flex;flex-direction:column;gap:6px}
+.tally{display:flex;gap:2px;align-items:center}
+.tally button:nth-of-type(6){margin-left:8px}
+.tally button{width:16px;height:22px;border:0;background:none;padding:0;cursor:pointer;position:relative}
+.tally button::before{content:"";position:absolute;left:7px;top:2px;width:2px;height:18px;border-radius:1px;background:var(--line);transform:rotate(6deg)}
+.tally button.on::before{background:var(--ink)}
+.tally .lbl{font-size:12px;color:var(--muted);margin-left:8px}
+.radius{display:flex;align-items:center;gap:10px}
+.radius input{flex:1;accent-color:var(--accent);min-width:0}
+.radius output{font-family:var(--f-mono);font-size:12px;width:56px;text-align:right;font-variant-numeric:tabular-nums}
+.hint{font-size:12px;color:var(--muted);text-wrap:pretty}
+
+/* people */
+.people{display:flex;flex-wrap:wrap;gap:6px}
+.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:3px 10px 3px 4px;background:var(--bg);cursor:pointer;font-size:13px}
+.chip img{width:20px;height:20px;border-radius:50%}
+.chip .sw{width:10px;height:10px;border-radius:50%;margin-left:4px}
+.chip.off{opacity:.45;text-decoration:line-through}
+.chip small{color:var(--muted);font-family:var(--f-mono);font-size:11px}
+
+/* mode */
+.seg{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{border:0;background:var(--bg);padding:8px 6px;cursor:pointer;font-size:13px;line-height:1.25}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed=true]{background:var(--ink);color:var(--panel)}
+
+/* results */
+.summary{font-size:13px;color:var(--muted)}
+.summary b{color:var(--ink);font-family:var(--f-mono);font-weight:600}
+ol.res{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+ol.res li{display:grid;grid-template-columns:28px 1fr auto;gap:2px 10px;padding:9px 8px;border-radius:8px;cursor:pointer;align-items:center}
+ol.res li:hover,ol.res li.sel{background:var(--bg)}
+ol.res .rk{font-family:var(--f-display);font-weight:700;font-size:15px;color:var(--accent);text-align:center}
+ol.res .nm{font-weight:600;min-width:0;overflow-wrap:anywhere}
+ol.res .br{font-size:12px;color:var(--muted)}
+ol.res .sc{font-family:var(--f-mono);font-size:13px;font-variant-numeric:tabular-nums;text-align:right}
+ol.res .bar{grid-column:2 / 4;height:4px;border-radius:2px;background:var(--line);overflow:hidden}
+ol.res .bar i{display:block;height:100%;background:var(--accent)}
+ol.res li.all .bar i{background:var(--bottle)}
+.pill{display:inline-block;font-size:10.5px;font-weight:600;letter-spacing:.03em;padding:1px 7px;border-radius:999px;background:var(--bottle-soft);color:var(--bottle);margin-left:6px;vertical-align:1px;white-space:nowrap}
+.dots{display:inline-flex;gap:3px;margin-left:6px;vertical-align:1px}
+.dots i{width:7px;height:7px;border-radius:50%}
+.empty{border:1px dashed var(--line);border-radius:10px;padding:14px;color:var(--muted);font-size:13px;text-wrap:pretty}
+.empty b{color:var(--ink)}
+
+/* map bits */
+.leaflet-container{font-family:var(--f-body);background:var(--outside)}
+.osm-tiles{filter:saturate(.55) contrast(.95)}
+.tiles-dark .osm-tiles{filter:invert(1) hue-rotate(180deg) saturate(.4) brightness(.85) contrast(.9)}
+.placing #map,.placing .leaflet-container{cursor:crosshair}
+.lbl-place{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);white-space:nowrap;text-shadow:0 0 3px var(--land),0 0 3px var(--land);pointer-events:none}
+.pin{width:18px;height:18px;border-radius:50%;border:3px solid var(--panel);box-shadow:0 1px 4px rgba(0,0,0,.35);cursor:grab}
+.pin.sel{outline:2px solid var(--ink);outline-offset:1px}
+.rankpin{width:24px;height:24px;border-radius:50% 50% 50% 4px;transform:rotate(-45deg);background:var(--accent);border:2px solid var(--panel);box-shadow:0 1px 4px rgba(0,0,0,.35);display:grid;place-items:center}
+.rankpin.all{background:var(--bottle)}
+.rankpin span{transform:rotate(45deg);font-family:var(--f-display);font-size:11px;font-weight:700;color:var(--panel)}
+.leaflet-popup-content-wrapper,.leaflet-popup-tip{background:var(--panel);color:var(--ink);box-shadow:0 4px 18px rgba(0,0,0,.25)}
+.leaflet-popup-content{margin:12px 14px;font-size:13px;min-width:200px}
+.pop h3{font-family:var(--f-display);font-size:14px;margin:0 0 2px;font-weight:700;line-height:1.25}
+.pop .br{color:var(--muted);font-size:12px}
+.pop table{border-collapse:collapse;width:100%;margin:8px 0}
+.pop td{padding:2px 0;font-size:12px}
+.pop td:last-child{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.pop .links{display:flex;gap:12px;font-size:12px}
+.pop a{color:var(--accent)}
+.leaflet-bar a,.leaflet-bar a:hover{background:var(--panel);color:var(--ink);border-color:var(--line)}
+.leaflet-control-attribution{background:color-mix(in srgb,var(--panel) 80%,transparent)!important;color:var(--muted)!important}
+.leaflet-control-attribution a{color:var(--muted)!important}
+.maphint{position:absolute;z-index:500;left:50%;transform:translateX(-50%);top:calc(12px + env(safe-area-inset-top,0px));background:var(--ink);color:var(--panel);padding:7px 14px;border-radius:999px;font-size:13px;font-weight:500;box-shadow:0 2px 10px rgba(0,0,0,.25);white-space:nowrap}
+.legend{position:absolute;z-index:500;left:max(12px,env(safe-area-inset-left,0px));bottom:calc(12px + env(safe-area-inset-bottom,0px));background:color-mix(in srgb,var(--panel) 92%,transparent);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:11.5px;color:var(--muted);display:flex;flex-direction:column;gap:4px}
+.legend div{display:flex;align-items:center;gap:6px}
+.legend i{display:inline-block;width:22px;height:8px;border-radius:2px}
+
+@media (max-width:760px){
+  .app{grid-template-columns:1fr;grid-template-rows:56vh auto;height:auto;min-height:100%}
+  .mapwrap{grid-row:1;height:56vh}
+  .panel{grid-row:2;border-right:0;border-top:1px solid var(--line);overflow:visible;padding-right:max(16px,env(safe-area-inset-right,0px));padding-left:max(16px,env(safe-area-inset-left,0px))}
+  header h1{font-size:22px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="app" id="app">
+  <aside class="panel">
+    <header>
+      <h1>Kam na pivo</h1>
+      <p>Каждый ставит на карту Праги точки, где ему удобно встретиться, и радиус, сколько готов пройти. Там, где круги пересекаются, ищем пивную.</p>
+      <div class="status" id="status"><span class="dot"></span><span id="statusText">Подключаемся…</span></div>
+      <div class="share" id="share" hidden>
+        <label for="shareUrl">Ссылка на эту встречу — кинь друзьям</label>
+        <div class="row"><input type="text" id="shareUrl" readonly><button class="btn" id="copyBtn" type="button">Скопировать</button></div>
+        <button class="btn ghost newroom" id="newRoomBtn" type="button">Начать новую встречу</button>
+      </div>
+    </header>
+
+    <section aria-labelledby="meH">
+      <div class="eyebrow" id="meH">Твои точки <span id="meCount"></span></div>
+      <div class="field">
+        <label for="nick">Как тебя подписать</label>
+        <input type="text" id="nick" maxlength="40" placeholder="Например, Петя" autocomplete="nickname">
+      </div>
+      <div class="row">
+        <button class="btn primary" id="addBtn" type="button">＋ Поставить точку</button>
+        <span class="hint" id="addHint"></span>
+      </div>
+      <div class="bill" id="myPoints"></div>
+      <p class="hint">Вес от 1 до 10 — это čárky, как на účtence: чем больше палочек, тем сильнее тебе хочется именно туда. Точку можно перетащить на карте.</p>
+    </section>
+
+    <section aria-labelledby="pplH">
+      <div class="eyebrow" id="pplH">Компания <span id="pplCount"></span></div>
+      <div class="people" id="people"></div>
+    </section>
+
+    <section aria-labelledby="resH">
+      <div class="eyebrow" id="resH">Куда идём</div>
+      <div class="seg" role="group" aria-label="Как считать">
+        <button type="button" id="modeFair" aria-pressed="true">Чтобы всем было норм</button>
+        <button type="button" id="modeAvg" aria-pressed="false">Удобно в среднем</button>
+      </div>
+      <div class="summary" id="summary"></div>
+      <ol class="res" id="results"></ol>
+    </section>
+  </aside>
+  <div class="mapwrap">
+    <div id="map" role="application" aria-label="Карта Праги"></div>
+    <div class="maphint" id="mapHint" hidden>Нажми на карту, чтобы поставить точку</div>
+    <div class="legend" id="legend">
+      <div><i style="background:linear-gradient(90deg,transparent,var(--accent))"></i>удобство для компании</div>
+      <div><i style="background:var(--bottle);opacity:.45"></i>внутри кругов у всех</div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<!--__EXTRA_SCRIPTS__-->
+<script>
+const TARGET = /*__TARGET__*/"claude";
+const PUBS = /*__PUBS__*/[];
+const GEO = /*__GEO__*/{};
+const PLACES = [["Staré Město",50.0870,14.4205],["Malá Strana",50.0880,14.4040],["Hradčany",50.0905,14.3965],["Nové Město",50.0790,14.4240],["Vinohrady",50.0755,14.4430],["Žižkov",50.0840,14.4560],["Karlín",50.0925,14.4520],["Holešovice",50.1035,14.4410],["Letná",50.0990,14.4230],["Dejvice",50.1005,14.3930],["Smíchov",50.0700,14.4030],["Vršovice",50.0690,14.4560],["Nusle",50.0600,14.4350],["Libeň",50.1080,14.4740],["Břevnov",50.0840,14.3600],["Strašnice",50.0730,14.4900],["Pankrác",50.0505,14.4390],["Vyšehrad",50.0640,14.4190],["Košíře",50.0700,14.3700],["Bubeneč",50.1040,14.4060]];
+
+/* ---------- utilities ---------- */
+const $ = id => document.getElementById(id);
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const FALLBACK_COLORS = ["#C2410C","#2563EB","#9333EA","#0F766E","#BE185D","#4D7C0F","#B45309","#0369A1"];
+const R_MIN=200, R_MAX=5000;
+const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
+function distM(lat1,lng1,lat2,lng2){const k=Math.cos((lat1+lat2)*Math.PI/360);const dx=(lng2-lng1)*k*111320, dy=(lat2-lat1)*110574;return Math.hypot(dx,dy);}
+function fmtR(m){return m<1000? m+" м" : (m/1000).toLocaleString("ru-RU",{maximumFractionDigits:1})+" км";}
+function uid(){return Math.random().toString(36).slice(2,9);}
+function el(tag,attrs={},...kids){const e=document.createElement(tag);for(const[k,v]of Object.entries(attrs)){if(k==="class")e.className=v;else if(k==="text")e.textContent=v;else if(k.startsWith("on"))e.addEventListener(k.slice(2),v);else e.setAttribute(k,v);}for(const k of kids)if(k!=null)e.append(k);return e;}
+function plural(n,a,b,c){const m=n%10,h=n%100;return m===1&&h!==11?a:(m>=2&&m<=4&&(h<12||h>14)?b:c);}
+
+/* ---------- state ---------- */
+const S = {
+  myId:null, db:null, user:null, online:false, readOnly:false,
+  nick:"", points:[], selected:null, placing:false,
+  others:{},           // id -> {nick, points}
+  profiles:{},         // id -> profile
+  hidden:new Set(), mode:"fair", selectedPub:null,
+};
+try{ const m=localStorage.getItem("kp_mode"); if(m==="avg"||m==="fair") S.mode=m; }catch(e){}
+
+function sanitizePoints(arr){
+  if(!Array.isArray(arr)) return [];
+  return arr.slice(0,20).map(p=>({
+    id:String(p?.id||uid()).slice(0,12),
+    lat:clamp(+p?.lat||0,49.9,50.25), lng:clamp(+p?.lng||0,14.1,14.8),
+    r:clamp(Math.round(+p?.r||1000),R_MIN,R_MAX), w:clamp(Math.round(+p?.w||5),1,10)
+  })).filter(p=>p.lat>49.9&&p.lng>14.1);
+}
+
+/* ---------- map ---------- */
+const map = L.map("map",{preferCanvas:true,zoomControl:false,minZoom:11,maxZoom:18,zoomSnap:0.5,maxBounds:[[49.85,14.05],[50.3,14.85]]}).setView([50.082,14.428],13);
+L.control.zoom({position:"topright"}).addTo(map);
+map.attributionControl.setPrefix(false).addAttribution('Карта и пивные: © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>');
+map.createPane("basePane").style.zIndex=250;
+map.createPane("heatPane").style.zIndex=300;
+map.createPane("circlePane").style.zIndex=380;
+map.createPane("pubPane").style.zIndex=420;
+const baseRenderer = L.canvas({pane:"basePane",padding:0.5});
+const pubRenderer = L.canvas({pane:"pubPane",padding:0.3});
+const circleRenderer = L.svg({pane:"circlePane"});
+
+const base = {land:null, roads:[], majors:[], river:[], border:[], labels:L.layerGroup().addTo(map)};
+function buildBase(){
+  // land: a big rectangle in land color behind everything inside the city box
+  base.land = L.rectangle([[49.9,14.15],[50.22,14.78]],{renderer:baseRenderer,stroke:false,fillOpacity:1,interactive:false}).addTo(map);
+  for(const line of GEO.roads||[]) base.roads.push(L.polyline(line,{renderer:baseRenderer,interactive:false}).addTo(map));
+  for(const line of GEO.major||[]) base.majors.push(L.polyline(line,{renderer:baseRenderer,interactive:false}).addTo(map));
+  for(const line of GEO.river||[]) base.river.push(L.polyline(line,{renderer:baseRenderer,interactive:false,lineCap:"round",lineJoin:"round"}).addTo(map));
+  for(const line of GEO.border||[]) base.border.push(L.polyline(line,{renderer:baseRenderer,interactive:false}).addTo(map));
+  for(const [n,lat,lng] of PLACES) L.marker([lat,lng],{interactive:false,keyboard:false,icon:L.divIcon({className:"lbl-place",html:n,iconSize:null})}).addTo(base.labels);
+}
+function styleBase(){
+  if(tiles){ document.documentElement.classList.toggle("tiles-dark",tiles._kpDark()); return; }
+  if(!base.land) return;
+  const z=map.getZoom(), k=Math.pow(1.6,z-13);
+  base.land.setStyle({fillColor:css("--land")});
+  base.roads.forEach(l=>l.setStyle({color:css("--road"),weight:clamp(1.6*k,0.8,7),opacity:1}));
+  base.majors.forEach(l=>l.setStyle({color:css("--road-major"),weight:clamp(2.6*k,1.2,10),opacity:1}));
+  base.river.forEach(l=>l.setStyle({color:css("--river"),weight:clamp(9*k,3,60),opacity:1}));
+  base.border.forEach(l=>l.setStyle({color:css("--border"),weight:1.5,dashArray:"6 5",opacity:.8}));
+  map.getPane("basePane").style.display="";
+}
+let tiles=null;
+if(TARGET==="github"){
+  const dark=()=>document.documentElement.dataset.theme==="dark"||(document.documentElement.dataset.theme!=="light"&&matchMedia("(prefers-color-scheme: dark)").matches);
+  tiles=L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,className:"osm-tiles"}).addTo(map);
+  tiles._kpDark=dark;
+}else{ buildBase(); map.on("zoomend",styleBase); }
+
+/* pubs layer */
+const pubDots = L.layerGroup().addTo(map);
+const rankLayer = L.layerGroup().addTo(map);
+function drawPubDots(){
+  pubDots.clearLayers();
+  const c=css("--pub");
+  PUBS.forEach((p,i)=>{
+    const m=L.circleMarker([p[1],p[2]],{renderer:pubRenderer,radius:2.6,weight:0,fillColor:c,fillOpacity:.75});
+    m.on("click",()=>openPub(i));
+    m.bindTooltip(p[0],{direction:"top",offset:[0,-4]});
+    pubDots.addLayer(m);
+  });
+}
+
+/* ---------- people & scoring ---------- */
+function allPeople(){
+  const list=[];
+  const meVisible = S.points.length>0;
+  if(meVisible) list.push({id:S.myId||"me",nick:S.nick,points:S.points,me:true});
+  for(const [id,p] of Object.entries(S.others)) if(id!==S.myId && p.points.length) list.push({id,nick:p.nick,points:p.points,me:false});
+  return list;
+}
+function hashStr(x){ let h=0; for(const ch of String(x)) h=(h*31+ch.charCodeAt(0))|0; return Math.abs(h); }
+function personColor(p,idx){ return S.profiles[p.id]?.color || FALLBACK_COLORS[(p.me&&!S.myId?0:hashStr(p.id))%FALLBACK_COLORS.length]; }
+function personName(p){ return p.nick || S.profiles[p.id]?.name || (p.me?"Ты":"Кто-то"); }
+
+function pointScore(d,r){ if(d<=r) return 1-0.25*(d/r)**2; const x=(d-r)/(0.6*r); return 0.75*Math.exp(-x*x); }
+function prepPerson(p){ const maxW=Math.max(...p.points.map(q=>q.w)); return p.points.map(q=>({lat:q.lat,lng:q.lng,r:q.r,f:0.4+0.6*q.w/maxW})); }
+function scoreAt(prepped,lat,lng){
+  const per=[]; let inside=true;
+  for(const pts of prepped){ let best=0, inn=false; for(const q of pts){ const d=distM(lat,lng,q.lat,q.lng); const s=q.f*pointScore(d,q.r); if(s>best)best=s; if(d<=q.r)inn=true; } per.push(best); if(!inn)inside=false; }
+  const g = !per.length?0 : S.mode==="fair" ? Math.min(...per) : per.reduce((a,b)=>a+b,0)/per.length;
+  return {g,per,inside};
+}
+
+/* heat overlay */
+const HeatLayer = L.Layer.extend({
+  onAdd(m){ this._c=L.DomUtil.create("canvas","heat"); this._c.style.position="absolute"; this._c.style.pointerEvents="none"; m.getPane("heatPane").appendChild(this._c); m.on("moveend resize zoomend",this.redraw,this); m.on("zoomstart",()=>this._c.style.visibility="hidden"); this.redraw(); },
+  onRemove(m){ this._c.remove(); m.off("moveend resize zoomend",this.redraw,this); },
+  redraw(){
+    const c=this._c; if(!c) return; const m=this._map; const size=m.getSize(); const dpr=1;
+    c.width=size.x*dpr; c.height=size.y*dpr; c.style.width=size.x+"px"; c.style.height=size.y+"px";
+    L.DomUtil.setPosition(c, m.containerPointToLayerPoint([0,0]));
+    c.style.visibility="visible";
+    const ctx=c.getContext("2d"); ctx.clearRect(0,0,c.width,c.height);
+    const ppl=visiblePeople(); if(!ppl.length) return;
+    const prepped=ppl.map(prepPerson);
+    const step=7, acc=css("--accent"), bot=css("--bottle");
+    const nw=m.containerPointToLatLng([0,0]), se=m.containerPointToLatLng([size.x,size.y]);
+    const cols=Math.ceil(size.x/step), rows=Math.ceil(size.y/step);
+    const off=document.createElement("canvas"); off.width=cols; off.height=rows; const o=off.getContext("2d");
+    const img=o.createImageData(cols,rows); const A=hexRgb(acc), B=hexRgb(bot);
+    for(let y=0;y<rows;y++){ const lat=nw.lat+(se.lat-nw.lat)*((y+.5)/rows);
+      for(let x=0;x<cols;x++){ const lng=nw.lng+(se.lng-nw.lng)*((x+.5)/cols);
+        const {g,inside}=scoreAt(prepped,lat,lng); const i=(y*cols+x)*4;
+        const col= inside&&ppl.length>1 ? B : A; const a = inside&&ppl.length>1 ? 0.30+0.25*g : Math.pow(g,1.6)*0.5;
+        img.data[i]=col[0]; img.data[i+1]=col[1]; img.data[i+2]=col[2]; img.data[i+3]=Math.round(a*255);
+      } }
+    o.putImageData(img,0,0); ctx.imageSmoothingEnabled=true; ctx.drawImage(off,0,0,cols*step,rows*step);
+  }
+});
+function hexRgb(h){ h=h.replace("#",""); if(h.length===3)h=h.split("").map(x=>x+x).join(""); const n=parseInt(h,16); return [(n>>16)&255,(n>>8)&255,n&255]; }
+const heat = new HeatLayer().addTo(map);
+function visiblePeople(){ return allPeople().filter(p=>!S.hidden.has(p.id)); }
+
+/* circles */
+const circleLayer = L.layerGroup().addTo(map);
+const myLayer = L.layerGroup().addTo(map);
+function drawCircles(){
+  circleLayer.clearLayers(); myLayer.clearLayers();
+  const ppl=allPeople();
+  ppl.forEach((p,idx)=>{
+    if(S.hidden.has(p.id)) return;
+    const col=personColor(p,idx);
+    p.points.forEach((q,qi)=>{
+      if(p.me){
+        const sel=S.selected===q.id;
+        const circ=L.circle([q.lat,q.lng],{renderer:circleRenderer,radius:q.r,color:col,weight:sel?3:2,fillColor:col,fillOpacity:.05+q.w*.008,interactive:false}).addTo(myLayer); circ._qid=q.id;
+        const mk=L.marker([q.lat,q.lng],{draggable:!S.readOnly,autoPan:true,keyboard:true,title:"Твоя точка "+(qi+1),
+          icon:L.divIcon({className:"",html:`<div class="pin${sel?" sel":""}" style="background:${col}"></div>`,iconSize:[18,18],iconAnchor:[9,9]})}).addTo(myLayer);
+        mk.on("click",()=>{S.selected=q.id;render();});
+        mk.on("drag",e=>{const ll=e.target.getLatLng(); q.lat=+ll.lat.toFixed(5); q.lng=+ll.lng.toFixed(5); myLayer.eachLayer(l=>{ if(l instanceof L.Circle && l._qid===q.id) l.setLatLng(ll); });});
+        mk.on("dragend",()=>{S.selected=q.id;changed();});
+      }else{
+        L.circle([q.lat,q.lng],{renderer:circleRenderer,radius:q.r,color:col,weight:1.6,dashArray:"5 5",fillColor:col,fillOpacity:.03+q.w*.006,interactive:false}).addTo(circleLayer);
+        L.circleMarker([q.lat,q.lng],{renderer:circleRenderer,radius:4,color:"#fff",weight:1.5,fillColor:col,fillOpacity:1,interactive:false}).addTo(circleLayer);
+      }
+    });
+  });
+}
+
+/* ranking */
+let ranked=[];
+function computeRanking(){
+  const ppl=visiblePeople(); if(!ppl.length){ranked=[];return {ppl,inside:0};}
+  const prepped=ppl.map(prepPerson); let inside=0;
+  const all=PUBS.map((p,i)=>{const s=scoreAt(prepped,p[1],p[2]); if(s.inside)inside++; return {i,...s};});
+  all.sort((a,b)=>(b.inside-a.inside)*(ppl.length>1?1:0) || b.g-a.g);
+  ranked=all.slice(0,10).filter(r=>r.g>0.02);
+  return {ppl,inside};
+}
+function drawRankPins(){
+  rankLayer.clearLayers();
+  ranked.forEach((r,k)=>{
+    const p=PUBS[r.i];
+    const m=L.marker([p[1],p[2]],{pane:"markerPane",zIndexOffset:1000-k,title:p[0],
+      icon:L.divIcon({className:"",html:`<div class="rankpin${r.inside&&visiblePeople().length>1?" all":""}"><span>${k+1}</span></div>`,iconSize:[24,24],iconAnchor:[12,26]})});
+    m.on("click",()=>openPub(r.i)); rankLayer.addLayer(m);
+  });
+}
+function openPub(i){
+  const p=PUBS[i]; S.selectedPub=i;
+  const ppl=visiblePeople(); const s=scoreAt(ppl.map(prepPerson),p[1],p[2]);
+  const box=el("div",{class:"pop"}, el("h3",{text:p[0]}), p[3]?el("div",{class:"br",text:"Točí: "+p[3]}):null);
+  if(ppl.length){ const t=el("table"); ppl.forEach((pp,k)=>{ const nearest=Math.min(...pp.points.map(q=>distM(p[1],p[2],q.lat,q.lng))); t.append(el("tr",{}, el("td",{}, el("span",{style:`display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;background:${personColor(pp,allPeople().indexOf(pp))}`}), personName(pp)), el("td",{text:`${Math.round(s.per[k]*100)}% · ${fmtR(Math.round(nearest/50)*50)}`}))); }); box.append(t); }
+  const q=encodeURIComponent(p[0]+", Praha");
+  box.append(el("div",{class:"links"}, el("a",{href:`https://mapy.cz/zakladni?q=${q}`,target:"_blank",rel:"noopener",text:"Mapy.cz"}), el("a",{href:`https://www.google.com/maps/search/?api=1&query=${p[1]},${p[2]}`,target:"_blank",rel:"noopener",text:"Google Maps"}), p[4]?el("a",{href:p[4],target:"_blank",rel:"noopener",text:"Сайт"}):null));
+  L.popup({offset:[0,-6],maxWidth:280}).setLatLng([p[1],p[2]]).setContent(box).openOn(map);
+  renderResults();
+}
+
+/* ---------- panel rendering ---------- */
+function renderMine(){
+  const box=$("myPoints"); box.replaceChildren();
+  $("meCount").textContent = S.points.length? `${S.points.length} ${plural(S.points.length,"точка","точки","точек")}` : "";
+  S.points.forEach((q,qi)=>{
+    const tally=el("div",{class:"tally",role:"group","aria-label":"Вес точки"});
+    for(let w=1;w<=10;w++) tally.append(el("button",{type:"button",class:w<=q.w?"on":"","aria-label":`Вес ${w}`,"aria-pressed":String(w===q.w),onclick:e=>{e.stopPropagation();q.w=w;S.selected=q.id;changed();}}));
+    tally.append(el("span",{class:"lbl",text:["","на крайний случай","можно и тут","терпимо","неплохо","нормально","хорошо","удобно","очень хочу","прям сюда","только сюда"][q.w]+" · "+q.w+"/10"}));
+    const out=el("output",{text:fmtR(q.r)});
+    const rng=el("input",{type:"range",id:"r_"+q.id,min:R_MIN,max:R_MAX,step:100,value:q.r,"aria-label":"Радиус",
+      oninput:e=>{q.r=+e.target.value;out.textContent=fmtR(q.r);myLayer.eachLayer(l=>{if(l instanceof L.Circle&&l._qid===q.id)l.setRadius(q.r);});},
+      onchange:()=>changed(), onclick:e=>e.stopPropagation()});
+    const row=el("div",{class:"pt"+(S.selected===q.id?" sel":""),onclick:()=>{S.selected=q.id;map.panTo([q.lat,q.lng]);render();}},
+      el("span",{class:"num",text:String(qi+1).padStart(2,"0")}),
+      el("span",{class:"ttl",text:nearestPlace(q)}),
+      el("button",{type:"button",class:"btn ghost","aria-label":"Удалить точку",text:"убрать",onclick:e=>{e.stopPropagation();S.points=S.points.filter(x=>x!==q);changed();}}),
+      el("div",{class:"sub"}, tally, el("div",{class:"radius"}, rng, out)));
+    if(S.readOnly) row.querySelectorAll("button,input").forEach(b=>b.disabled=true);
+    box.append(row);
+  });
+  if(!S.points.length) box.append(el("div",{class:"empty"}, el("b",{text:"Пока пусто. "}), "Нажми «Поставить точку» и ткни в карту — например, рядом с работой или домом. Точек может быть несколько."));
+  $("addBtn").disabled=S.readOnly;
+  $("addBtn").classList.toggle("armed",S.placing);
+  $("addBtn").textContent = S.placing? "Отмена" : "＋ Поставить точку";
+}
+function nearestPlace(q){ let best=null,bd=1e9; for(const [n,lat,lng] of PLACES){const d=distM(q.lat,q.lng,lat,lng); if(d<bd){bd=d;best=n;}} return bd<1500? "у "+best.replace(/^Staré Město$/,"Starého Města") : "Прага, "+q.lat.toFixed(3)+", "+q.lng.toFixed(3); }
+
+async function renderPeople(){
+  const ppl=allPeople(); const box=$("people"); box.replaceChildren();
+  const ids=ppl.map(p=>p.id).filter(id=>id&&id!=="me");
+  if(S.user && ids.length){ try{ Object.assign(S.profiles, await S.user.profiles(ids)); }catch(e){} }
+  ppl.forEach((p,idx)=>{
+    const prof=S.profiles[p.id]; const col=personColor(p,idx);
+    const chip=el("button",{type:"button",class:"chip"+(S.hidden.has(p.id)?" off":""),"aria-pressed":String(!S.hidden.has(p.id)),title:"Скрыть / показать",
+      onclick:()=>{S.hidden.has(p.id)?S.hidden.delete(p.id):S.hidden.add(p.id);render();}},
+      prof?.avatarUrl? el("img",{src:prof.avatarUrl,alt:""}) : el("span",{class:"sw",style:`background:${col}`}),
+      el("span",{text:personName(p)+(p.me?" (ты)":"")}), el("small",{text:String(p.points.length)}));
+    if(prof?.avatarUrl) chip.style.boxShadow=`inset 0 0 0 2px ${col}`;
+    box.append(chip);
+  });
+  if(!ppl.length) box.append(el("div",{class:"empty",text:"Здесь появятся все, кто отметил точки. Поделись ссылкой на эту страницу с друзьями."}));
+  $("pplCount").textContent = ppl.length? `${ppl.length} ${plural(ppl.length,"человек","человека","человек")}` : "";
+}
+
+let lastStats={ppl:[],inside:0};
+function renderResults(){
+  const {ppl,inside}=lastStats; const ol=$("results"); ol.replaceChildren();
+  $("modeFair").setAttribute("aria-pressed",String(S.mode==="fair")); $("modeAvg").setAttribute("aria-pressed",String(S.mode==="avg"));
+  if(!ppl.length){ $("summary").replaceChildren(); ol.append(el("li",{class:"empty",style:"display:block;cursor:default",text:"Как только кто-то поставит точку, здесь появится десятка пивных, куда удобнее всего дойти."})); return; }
+  const pts=ppl.reduce((a,p)=>a+p.points.length,0);
+  const tail = ppl.length>1 ? [" · ",el("b",{text:String(inside)})," ",plural(inside,"пивная","пивные","пивных")," в пересечении всех"] : [" · из ",el("b",{text:String(PUBS.length)})," пивных Праги"];
+  $("summary").replaceChildren(el("b",{text:String(ppl.length)})," ",plural(ppl.length,"человек","человека","человек")," · ",el("b",{text:String(pts)})," ",plural(pts,"точка","точки","точек"),...tail);
+  ranked.forEach((r,k)=>{
+    const p=PUBS[r.i]; const all=r.inside&&ppl.length>1;
+    const dots=el("span",{class:"dots"}); r.per.forEach((v,j)=>dots.append(el("i",{style:`background:${personColor(ppl[j],allPeople().indexOf(ppl[j]))};opacity:${0.2+0.8*v}`,title:`${personName(ppl[j])}: ${Math.round(v*100)}%`})));
+    const li=el("li",{class:(all?"all ":"")+(S.selectedPub===r.i?"sel":""),tabindex:"0",onclick:()=>{map.flyTo([p[1],p[2]],Math.max(map.getZoom(),15),{duration:.6});openPub(r.i);},onkeydown:e=>{if(e.key==="Enter")e.target.click();}},
+      el("span",{class:"rk",text:String(k+1)}),
+      el("div",{style:"min-width:0"}, el("div",{class:"nm"}, p[0], all?el("span",{class:"pill",text:"всем по пути"}):null), el("div",{class:"br"}, p[3]?"Točí "+p[3]:"", dots)),
+      el("span",{class:"sc",text:Math.round(r.g*100)+"%"}),
+      el("div",{class:"bar"}, el("i",{style:`width:${Math.round(r.g*100)}%`})));
+    ol.append(li);
+  });
+}
+
+let rq=null;
+function render(){ if(rq) return; rq=requestAnimationFrame(()=>{ rq=null;
+  lastStats=computeRanking(); drawCircles(); drawRankPins(); heat.redraw(); renderMine(); renderPeople(); renderResults();
+  $("mapHint").hidden=!S.placing; document.getElementById("app").classList.toggle("placing",S.placing);
+});}
+
+/* ---------- interactions ---------- */
+$("addBtn").onclick=()=>{S.placing=!S.placing;render();};
+map.on("click",e=>{
+  if(!S.placing||S.readOnly) return;
+  if(S.points.length>=20){setStatus("warn","Максимум 20 точек");return;}
+  const q={id:uid(),lat:+e.latlng.lat.toFixed(5),lng:+e.latlng.lng.toFixed(5),r:1000,w:5};
+  S.points.push(q); S.selected=q.id; S.placing=false; changed();
+});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&S.placing){S.placing=false;render();}});
+$("nick").addEventListener("input",e=>{S.nick=e.target.value.slice(0,40);changed(true);});
+$("modeFair").onclick=()=>{S.mode="fair";try{localStorage.setItem("kp_mode","fair")}catch(e){};render();};
+$("modeAvg").onclick=()=>{S.mode="avg";try{localStorage.setItem("kp_mode","avg")}catch(e){};render();};
+
+/* ---------- persistence ---------- */
+let saveTimer=null, saving=Promise.resolve(), dirty=false;
+function localKey(){ return "kp_local"+(S.room?"_"+S.room:""); }
+function changed(textOnly){ dirty=true; if(!textOnly) render(); else renderPeople(); clearTimeout(saveTimer); saveTimer=setTimeout(flush, textOnly?900:500); }
+function flush(){
+  const body={nick:S.nick,points:S.points.map(({id,lat,lng,r,w})=>({id,lat,lng,r,w})),updatedAt:Date.now()};
+  if(!S.online){ try{localStorage.setItem(localKey(),JSON.stringify(body));}catch(e){} dirty=false; return; }
+  setStatus("", "Сохраняем…");
+  saving=saving.then(async()=>{
+    try{ await S.save(body); dirty=false; setStatus("ok","Сохранено · видно всем, у кого есть ссылка"); }
+    catch(e){
+      const c=e?.code||"";
+      if(c==="invalid_argument"||c==="permission-denied"){ S.readOnly=true; setStatus("warn", TARGET==="github"?"Запись запрещена — проверь правила Firestore":"У тебя доступ только на просмотр — попроси владельца дать права участника"); render(); }
+      else if(c==="quota_exceeded"||c==="resource-exhausted"){ setStatus("warn","Хранилище заполнено"); }
+      else { setStatus("warn","Не сохранилось, попробуем ещё раз"); setTimeout(flush,2500); }
+    }
+  });
+}
+function setStatus(kind,text){ $("status").className="status "+(kind||""); $("statusText").textContent=text; }
+
+function loadLocal(){ try{ const d=JSON.parse(localStorage.getItem(localKey())||"null"); if(d){ S.nick=String(d.nick||"").slice(0,40); S.points=sanitizePoints(d.points); } }catch(e){} $("nick").value=S.nick; }
+function goLocal(msg){ loadLocal(); S.placing=!S.points.length; setStatus("warn",msg); render(); }
+
+/* shared: subscribe to everyone's docs (same shape for Claude db and Firestore) */
+function subscribePeople(col){
+  let gotMine=false, settled=false;
+  const timer=setTimeout(()=>{ if(!settled) setStatus("warn","Данные пока не доступны — проверь соединение"); },10000);
+  return col.onSnapshot(snap=>{
+    if(!snap.metadata.fromCache){ settled=true; clearTimeout(timer); }
+    const others={};
+    for(const d of snap.docs){
+      const v=d.data()||{}; const rec={nick:String(v.nick||"").slice(0,40),points:sanitizePoints(v.points)};
+      if(d.id===S.myId){ if(!gotMine && !dirty){ S.nick=rec.nick; S.points=rec.points; $("nick").value=S.nick; } gotMine=true; continue; }
+      others[d.id]=rec;
+    }
+    S.others=others;
+    if(settled && !S.points.length && !S.readOnly && !S.placing && !subscribePeople._armed){ subscribePeople._armed=true; S.placing=true; }
+    if(settled) setStatus(S.readOnly?"warn":"ok", S.readOnly? "Только просмотр: попроси владельца дать права участника" : "Онлайн · изменения друзей приходят сами");
+    render();
+  }, err=>{ clearTimeout(timer); setStatus("warn", err?.code==="permission-denied" ? "Нет доступа к базе — проверь правила Firestore" : "Связь с общими данными потеряна — обнови страницу позже"); });
+}
+
+async function bootClaude(){
+  const use = n => (window.claude && typeof window.claude.use==="function") ? window.claude.use(n).catch(()=>null) : Promise.resolve(null);
+  const [db,user]=await Promise.all([use("db"),use("user")]);
+  S.user=user;
+  const myId = user ? await user.id() : null;
+  if(!db||!myId) return goLocal("Офлайн: точки сохраняются только в этом браузере. Войди в Claude, чтобы видеть друзей.");
+  S.myId=myId; S.online=true; S.save=body=>db.doc("people/"+myId).set(body);
+  if(user.can){ try{ if(await user.can("data.write")===false){ S.readOnly=true; } }catch(e){} }
+  subscribePeople(db.collection("people"));
+}
+
+/* rooms: each meetup is its own link, #r-xxxxxxxx */
+function readRoom(){ const m=/^#(r-[a-z0-9]{6,16})$/.exec(location.hash); return m?m[1]:null; }
+function newRoomId(){ const a=new Uint8Array(6); crypto.getRandomValues(a); return "r-"+Array.from(a,b=>(b%36).toString(36)).join("")+uid().slice(0,2); }
+function setupRoom(){
+  S.room=readRoom();
+  if(!S.room){ S.room=newRoomId(); history.replaceState(null,"",location.pathname+location.search+"#"+S.room); }
+  $("share").hidden=false; $("shareUrl").value=location.href;
+  $("copyBtn").onclick=async()=>{ try{ await navigator.clipboard.writeText(location.href); $("copyBtn").textContent="Скопировано"; }catch(e){ $("shareUrl").select(); $("copyBtn").textContent="Выделено — Ctrl/⌘+C"; } setTimeout(()=>$("copyBtn").textContent="Скопировать",2000); };
+  $("newRoomBtn").onclick=()=>{ location.hash=newRoomId(); };
+  addEventListener("hashchange",()=>location.reload());
+}
+
+async function bootGithub(){
+  setupRoom();
+  const cfg=window.FIREBASE_CONFIG;
+  if(!window.firebase || !cfg || !cfg.apiKey || String(cfg.apiKey).includes("ВСТАВЬ")) return goLocal("Firebase не настроен: точки сохраняются только в этом браузере.");
+  try{
+    firebase.initializeApp(cfg);
+    await firebase.auth().signInAnonymously();
+    const uidF=firebase.auth().currentUser.uid;
+    const col=firebase.firestore().collection("rooms").doc(S.room).collection("people");
+    S.myId=uidF; S.online=true; S.save=body=>col.doc(uidF).set(body);
+    subscribePeople(col);
+  }catch(e){ console.error(e); goLocal("Не удалось подключиться к Firebase ("+(e?.code||"ошибка")+"). Точки пока только в этом браузере."); }
+}
+
+async function boot(){
+  drawPubDots(); styleBase(); render();
+  return TARGET==="github" ? bootGithub() : bootClaude();
+}
+
+/* theme changes: restyle canvas layers */
+const reTheme=()=>{ styleBase(); drawPubDots(); render(); };
+try{ matchMedia("(prefers-color-scheme: dark)").addEventListener("change",reTheme); }catch(e){}
+new MutationObserver(reTheme).observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
+
+boot();
+</script>

@@ -1,0 +1,1264 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>html,body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>Kam na pivo</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600&family=JetBrains+Mono:wght@400;600&family=Unbounded:wght@500;700&display=swap">
+<style>
+/* required styles */
+
+.leaflet-pane,
+.leaflet-tile,
+.leaflet-marker-icon,
+.leaflet-marker-shadow,
+.leaflet-tile-container,
+.leaflet-pane > svg,
+.leaflet-pane > canvas,
+.leaflet-zoom-box,
+.leaflet-image-layer,
+.leaflet-layer {
+	position: absolute;
+	left: 0;
+	top: 0;
+	}
+.leaflet-container {
+	overflow: hidden;
+	}
+.leaflet-tile,
+.leaflet-marker-icon,
+.leaflet-marker-shadow {
+	-webkit-user-select: none;
+	   -moz-user-select: none;
+	        user-select: none;
+	  -webkit-user-drag: none;
+	}
+/* Prevents IE11 from highlighting tiles in blue */
+.leaflet-tile::selection {
+	background: transparent;
+}
+/* Safari renders non-retina tile on retina better with this, but Chrome is worse */
+.leaflet-safari .leaflet-tile {
+	image-rendering: -webkit-optimize-contrast;
+	}
+/* hack that prevents hw layers "stretching" when loading new tiles */
+.leaflet-safari .leaflet-tile-container {
+	width: 1600px;
+	height: 1600px;
+	-webkit-transform-origin: 0 0;
+	}
+.leaflet-marker-icon,
+.leaflet-marker-shadow {
+	display: block;
+	}
+/* .leaflet-container svg: reset svg max-width decleration shipped in Joomla! (joomla.org) 3.x */
+/* .leaflet-container img: map is broken in FF if you have max-width: 100% on tiles */
+.leaflet-container .leaflet-overlay-pane svg {
+	max-width: none !important;
+	max-height: none !important;
+	}
+.leaflet-container .leaflet-marker-pane img,
+.leaflet-container .leaflet-shadow-pane img,
+.leaflet-container .leaflet-tile-pane img,
+.leaflet-container img.leaflet-image-layer,
+.leaflet-container .leaflet-tile {
+	max-width: none !important;
+	max-height: none !important;
+	width: auto;
+	padding: 0;
+	}
+
+.leaflet-container img.leaflet-tile {
+	/* See: https://bugs.chromium.org/p/chromium/issues/detail?id=600120 */
+	mix-blend-mode: plus-lighter;
+}
+
+.leaflet-container.leaflet-touch-zoom {
+	-ms-touch-action: pan-x pan-y;
+	touch-action: pan-x pan-y;
+	}
+.leaflet-container.leaflet-touch-drag {
+	-ms-touch-action: pinch-zoom;
+	/* Fallback for FF which doesn't support pinch-zoom */
+	touch-action: none;
+	touch-action: pinch-zoom;
+}
+.leaflet-container.leaflet-touch-drag.leaflet-touch-zoom {
+	-ms-touch-action: none;
+	touch-action: none;
+}
+.leaflet-container {
+	-webkit-tap-highlight-color: transparent;
+}
+.leaflet-container a {
+	-webkit-tap-highlight-color: rgba(51, 181, 229, 0.4);
+}
+.leaflet-tile {
+	filter: inherit;
+	visibility: hidden;
+	}
+.leaflet-tile-loaded {
+	visibility: inherit;
+	}
+.leaflet-zoom-box {
+	width: 0;
+	height: 0;
+	-moz-box-sizing: border-box;
+	     box-sizing: border-box;
+	z-index: 800;
+	}
+/* workaround for https://bugzilla.mozilla.org/show_bug.cgi?id=888319 */
+.leaflet-overlay-pane svg {
+	-moz-user-select: none;
+	}
+
+.leaflet-pane         { z-index: 400; }
+
+.leaflet-tile-pane    { z-index: 200; }
+.leaflet-overlay-pane { z-index: 400; }
+.leaflet-shadow-pane  { z-index: 500; }
+.leaflet-marker-pane  { z-index: 600; }
+.leaflet-tooltip-pane   { z-index: 650; }
+.leaflet-popup-pane   { z-index: 700; }
+
+.leaflet-map-pane canvas { z-index: 100; }
+.leaflet-map-pane svg    { z-index: 200; }
+
+.leaflet-vml-shape {
+	width: 1px;
+	height: 1px;
+	}
+.lvml {
+	behavior: url(#default#VML);
+	display: inline-block;
+	position: absolute;
+	}
+
+
+/* control positioning */
+
+.leaflet-control {
+	position: relative;
+	z-index: 800;
+	pointer-events: visiblePainted; /* IE 9-10 doesn't have auto */
+	pointer-events: auto;
+	}
+.leaflet-top,
+.leaflet-bottom {
+	position: absolute;
+	z-index: 1000;
+	pointer-events: none;
+	}
+.leaflet-top {
+	top: 0;
+	}
+.leaflet-right {
+	right: 0;
+	}
+.leaflet-bottom {
+	bottom: 0;
+	}
+.leaflet-left {
+	left: 0;
+	}
+.leaflet-control {
+	float: left;
+	clear: both;
+	}
+.leaflet-right .leaflet-control {
+	float: right;
+	}
+.leaflet-top .leaflet-control {
+	margin-top: 10px;
+	}
+.leaflet-bottom .leaflet-control {
+	margin-bottom: 10px;
+	}
+.leaflet-left .leaflet-control {
+	margin-left: 10px;
+	}
+.leaflet-right .leaflet-control {
+	margin-right: 10px;
+	}
+
+
+/* zoom and fade animations */
+
+.leaflet-fade-anim .leaflet-popup {
+	opacity: 0;
+	-webkit-transition: opacity 0.2s linear;
+	   -moz-transition: opacity 0.2s linear;
+	        transition: opacity 0.2s linear;
+	}
+.leaflet-fade-anim .leaflet-map-pane .leaflet-popup {
+	opacity: 1;
+	}
+.leaflet-zoom-animated {
+	-webkit-transform-origin: 0 0;
+	    -ms-transform-origin: 0 0;
+	        transform-origin: 0 0;
+	}
+svg.leaflet-zoom-animated {
+	will-change: transform;
+}
+
+.leaflet-zoom-anim .leaflet-zoom-animated {
+	-webkit-transition: -webkit-transform 0.25s cubic-bezier(0,0,0.25,1);
+	   -moz-transition:    -moz-transform 0.25s cubic-bezier(0,0,0.25,1);
+	        transition:         transform 0.25s cubic-bezier(0,0,0.25,1);
+	}
+.leaflet-zoom-anim .leaflet-tile,
+.leaflet-pan-anim .leaflet-tile {
+	-webkit-transition: none;
+	   -moz-transition: none;
+	        transition: none;
+	}
+
+.leaflet-zoom-anim .leaflet-zoom-hide {
+	visibility: hidden;
+	}
+
+
+/* cursors */
+
+.leaflet-interactive {
+	cursor: pointer;
+	}
+.leaflet-grab {
+	cursor: -webkit-grab;
+	cursor:    -moz-grab;
+	cursor:         grab;
+	}
+.leaflet-crosshair,
+.leaflet-crosshair .leaflet-interactive {
+	cursor: crosshair;
+	}
+.leaflet-popup-pane,
+.leaflet-control {
+	cursor: auto;
+	}
+.leaflet-dragging .leaflet-grab,
+.leaflet-dragging .leaflet-grab .leaflet-interactive,
+.leaflet-dragging .leaflet-marker-draggable {
+	cursor: move;
+	cursor: -webkit-grabbing;
+	cursor:    -moz-grabbing;
+	cursor:         grabbing;
+	}
+
+/* marker & overlays interactivity */
+.leaflet-marker-icon,
+.leaflet-marker-shadow,
+.leaflet-image-layer,
+.leaflet-pane > svg path,
+.leaflet-tile-container {
+	pointer-events: none;
+	}
+
+.leaflet-marker-icon.leaflet-interactive,
+.leaflet-image-layer.leaflet-interactive,
+.leaflet-pane > svg path.leaflet-interactive,
+svg.leaflet-image-layer.leaflet-interactive path {
+	pointer-events: visiblePainted; /* IE 9-10 doesn't have auto */
+	pointer-events: auto;
+	}
+
+/* visual tweaks */
+
+.leaflet-container {
+	background: #ddd;
+	outline-offset: 1px;
+	}
+.leaflet-container a {
+	color: #0078A8;
+	}
+.leaflet-zoom-box {
+	border: 2px dotted #38f;
+	background: rgba(255,255,255,0.5);
+	}
+
+
+/* general typography */
+.leaflet-container {
+	font-family: "Helvetica Neue", Arial, Helvetica, sans-serif;
+	font-size: 12px;
+	font-size: 0.75rem;
+	line-height: 1.5;
+	}
+
+
+/* general toolbar styles */
+
+.leaflet-bar {
+	box-shadow: 0 1px 5px rgba(0,0,0,0.65);
+	border-radius: 4px;
+	}
+.leaflet-bar a {
+	background-color: #fff;
+	border-bottom: 1px solid #ccc;
+	width: 26px;
+	height: 26px;
+	line-height: 26px;
+	display: block;
+	text-align: center;
+	text-decoration: none;
+	color: black;
+	}
+.leaflet-bar a,
+.leaflet-control-layers-toggle {
+	background-position: 50% 50%;
+	background-repeat: no-repeat;
+	display: block;
+	}
+.leaflet-bar a:hover,
+.leaflet-bar a:focus {
+	background-color: #f4f4f4;
+	}
+.leaflet-bar a:first-child {
+	border-top-left-radius: 4px;
+	border-top-right-radius: 4px;
+	}
+.leaflet-bar a:last-child {
+	border-bottom-left-radius: 4px;
+	border-bottom-right-radius: 4px;
+	border-bottom: none;
+	}
+.leaflet-bar a.leaflet-disabled {
+	cursor: default;
+	background-color: #f4f4f4;
+	color: #bbb;
+	}
+
+.leaflet-touch .leaflet-bar a {
+	width: 30px;
+	height: 30px;
+	line-height: 30px;
+	}
+.leaflet-touch .leaflet-bar a:first-child {
+	border-top-left-radius: 2px;
+	border-top-right-radius: 2px;
+	}
+.leaflet-touch .leaflet-bar a:last-child {
+	border-bottom-left-radius: 2px;
+	border-bottom-right-radius: 2px;
+	}
+
+/* zoom control */
+
+.leaflet-control-zoom-in,
+.leaflet-control-zoom-out {
+	font: bold 18px 'Lucida Console', Monaco, monospace;
+	text-indent: 1px;
+	}
+
+.leaflet-touch .leaflet-control-zoom-in, .leaflet-touch .leaflet-control-zoom-out  {
+	font-size: 22px;
+	}
+
+
+/* layers control */
+
+.leaflet-control-layers {
+	box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+	background: #fff;
+	border-radius: 5px;
+	}
+.leaflet-control-layers-toggle {
+	background-image: url(images/layers.png);
+	width: 36px;
+	height: 36px;
+	}
+.leaflet-retina .leaflet-control-layers-toggle {
+	background-image: url(images/layers-2x.png);
+	background-size: 26px 26px;
+	}
+.leaflet-touch .leaflet-control-layers-toggle {
+	width: 44px;
+	height: 44px;
+	}
+.leaflet-control-layers .leaflet-control-layers-list,
+.leaflet-control-layers-expanded .leaflet-control-layers-toggle {
+	display: none;
+	}
+.leaflet-control-layers-expanded .leaflet-control-layers-list {
+	display: block;
+	position: relative;
+	}
+.leaflet-control-layers-expanded {
+	padding: 6px 10px 6px 6px;
+	color: #333;
+	background: #fff;
+	}
+.leaflet-control-layers-scrollbar {
+	overflow-y: scroll;
+	overflow-x: hidden;
+	padding-right: 5px;
+	}
+.leaflet-control-layers-selector {
+	margin-top: 2px;
+	position: relative;
+	top: 1px;
+	}
+.leaflet-control-layers label {
+	display: block;
+	font-size: 13px;
+	font-size: 1.08333em;
+	}
+.leaflet-control-layers-separator {
+	height: 0;
+	border-top: 1px solid #ddd;
+	margin: 5px -10px 5px -6px;
+	}
+
+/* Default icon URLs */
+.leaflet-default-icon-path { /* used only in path-guessing heuristic, see L.Icon.Default */
+	background-image: url(images/marker-icon.png);
+	}
+
+
+/* attribution and scale controls */
+
+.leaflet-container .leaflet-control-attribution {
+	background: #fff;
+	background: rgba(255, 255, 255, 0.8);
+	margin: 0;
+	}
+.leaflet-control-attribution,
+.leaflet-control-scale-line {
+	padding: 0 5px;
+	color: #333;
+	line-height: 1.4;
+	}
+.leaflet-control-attribution a {
+	text-decoration: none;
+	}
+.leaflet-control-attribution a:hover,
+.leaflet-control-attribution a:focus {
+	text-decoration: underline;
+	}
+.leaflet-attribution-flag {
+	display: inline !important;
+	vertical-align: baseline !important;
+	width: 1em;
+	height: 0.6669em;
+	}
+.leaflet-left .leaflet-control-scale {
+	margin-left: 5px;
+	}
+.leaflet-bottom .leaflet-control-scale {
+	margin-bottom: 5px;
+	}
+.leaflet-control-scale-line {
+	border: 2px solid #777;
+	border-top: none;
+	line-height: 1.1;
+	padding: 2px 5px 1px;
+	white-space: nowrap;
+	-moz-box-sizing: border-box;
+	     box-sizing: border-box;
+	background: rgba(255, 255, 255, 0.8);
+	text-shadow: 1px 1px #fff;
+	}
+.leaflet-control-scale-line:not(:first-child) {
+	border-top: 2px solid #777;
+	border-bottom: none;
+	margin-top: -2px;
+	}
+.leaflet-control-scale-line:not(:first-child):not(:last-child) {
+	border-bottom: 2px solid #777;
+	}
+
+.leaflet-touch .leaflet-control-attribution,
+.leaflet-touch .leaflet-control-layers,
+.leaflet-touch .leaflet-bar {
+	box-shadow: none;
+	}
+.leaflet-touch .leaflet-control-layers,
+.leaflet-touch .leaflet-bar {
+	border: 2px solid rgba(0,0,0,0.2);
+	background-clip: padding-box;
+	}
+
+
+/* popup */
+
+.leaflet-popup {
+	position: absolute;
+	text-align: center;
+	margin-bottom: 20px;
+	}
+.leaflet-popup-content-wrapper {
+	padding: 1px;
+	text-align: left;
+	border-radius: 12px;
+	}
+.leaflet-popup-content {
+	margin: 13px 24px 13px 20px;
+	line-height: 1.3;
+	font-size: 13px;
+	font-size: 1.08333em;
+	min-height: 1px;
+	}
+.leaflet-popup-content p {
+	margin: 17px 0;
+	margin: 1.3em 0;
+	}
+.leaflet-popup-tip-container {
+	width: 40px;
+	height: 20px;
+	position: absolute;
+	left: 50%;
+	margin-top: -1px;
+	margin-left: -20px;
+	overflow: hidden;
+	pointer-events: none;
+	}
+.leaflet-popup-tip {
+	width: 17px;
+	height: 17px;
+	padding: 1px;
+
+	margin: -10px auto 0;
+	pointer-events: auto;
+
+	-webkit-transform: rotate(45deg);
+	   -moz-transform: rotate(45deg);
+	    -ms-transform: rotate(45deg);
+	        transform: rotate(45deg);
+	}
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+	background: white;
+	color: #333;
+	box-shadow: 0 3px 14px rgba(0,0,0,0.4);
+	}
+.leaflet-container a.leaflet-popup-close-button {
+	position: absolute;
+	top: 0;
+	right: 0;
+	border: none;
+	text-align: center;
+	width: 24px;
+	height: 24px;
+	font: 16px/24px Tahoma, Verdana, sans-serif;
+	color: #757575;
+	text-decoration: none;
+	background: transparent;
+	}
+.leaflet-container a.leaflet-popup-close-button:hover,
+.leaflet-container a.leaflet-popup-close-button:focus {
+	color: #585858;
+	}
+.leaflet-popup-scrolled {
+	overflow: auto;
+	}
+
+.leaflet-oldie .leaflet-popup-content-wrapper {
+	-ms-zoom: 1;
+	}
+.leaflet-oldie .leaflet-popup-tip {
+	width: 24px;
+	margin: 0 auto;
+
+	-ms-filter: "progid:DXImageTransform.Microsoft.Matrix(M11=0.70710678, M12=0.70710678, M21=-0.70710678, M22=0.70710678)";
+	filter: progid:DXImageTransform.Microsoft.Matrix(M11=0.70710678, M12=0.70710678, M21=-0.70710678, M22=0.70710678);
+	}
+
+.leaflet-oldie .leaflet-control-zoom,
+.leaflet-oldie .leaflet-control-layers,
+.leaflet-oldie .leaflet-popup-content-wrapper,
+.leaflet-oldie .leaflet-popup-tip {
+	border: 1px solid #999;
+	}
+
+
+/* div icon */
+
+.leaflet-div-icon {
+	background: #fff;
+	border: 1px solid #666;
+	}
+
+
+/* Tooltip */
+/* Base styles for the element that has a tooltip */
+.leaflet-tooltip {
+	position: absolute;
+	padding: 6px;
+	background-color: #fff;
+	border: 1px solid #fff;
+	border-radius: 3px;
+	color: #222;
+	white-space: nowrap;
+	-webkit-user-select: none;
+	-moz-user-select: none;
+	-ms-user-select: none;
+	user-select: none;
+	pointer-events: none;
+	box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+	}
+.leaflet-tooltip.leaflet-interactive {
+	cursor: pointer;
+	pointer-events: auto;
+	}
+.leaflet-tooltip-top:before,
+.leaflet-tooltip-bottom:before,
+.leaflet-tooltip-left:before,
+.leaflet-tooltip-right:before {
+	position: absolute;
+	pointer-events: none;
+	border: 6px solid transparent;
+	background: transparent;
+	content: "";
+	}
+
+/* Directions */
+
+.leaflet-tooltip-bottom {
+	margin-top: 6px;
+}
+.leaflet-tooltip-top {
+	margin-top: -6px;
+}
+.leaflet-tooltip-bottom:before,
+.leaflet-tooltip-top:before {
+	left: 50%;
+	margin-left: -6px;
+	}
+.leaflet-tooltip-top:before {
+	bottom: 0;
+	margin-bottom: -12px;
+	border-top-color: #fff;
+	}
+.leaflet-tooltip-bottom:before {
+	top: 0;
+	margin-top: -12px;
+	margin-left: -6px;
+	border-bottom-color: #fff;
+	}
+.leaflet-tooltip-left {
+	margin-left: -6px;
+}
+.leaflet-tooltip-right {
+	margin-left: 6px;
+}
+.leaflet-tooltip-left:before,
+.leaflet-tooltip-right:before {
+	top: 50%;
+	margin-top: -6px;
+	}
+.leaflet-tooltip-left:before {
+	right: 0;
+	margin-right: -12px;
+	border-left-color: #fff;
+	}
+.leaflet-tooltip-right:before {
+	left: 0;
+	margin-left: -12px;
+	border-right-color: #fff;
+	}
+
+/* Printing */
+
+@media print {
+	/* Prevent printers from removing background-images of controls. */
+	.leaflet-control {
+		-webkit-print-color-adjust: exact;
+		print-color-adjust: exact;
+		}
+	}
+
+</style>
+<style>
+/* Layout: one-screen tool — a paper "účtenka" side panel beside a tile-less vector map of Prague; stacks map-over-panel on phones. */
+:root{
+  --bg:#EEF1EC; --panel:#F9FAF7; --ink:#18221D; --muted:#5B6961; --line:#D4DBD4;
+  --accent:#B4741A; --accent-soft:#F3E3C6; --accent-ink:#FFFFFF;
+  --bottle:#1F5A40; --bottle-soft:#DCEBE2;
+  --land:#F5F4EE; --outside:#E4E7E0; --river:#8DB4CE; --road:#DCD5C4; --road-major:#CDBE98; --border:#9AA79F;
+  --pub:#7B6A55; --danger:#A23B2C;
+  --f-display:"Unbounded","Golos Text",system-ui,sans-serif;
+  --f-body:"Golos Text",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#111713; --panel:#172019; --ink:#E4EBE6; --muted:#93A39A; --line:#2A362F;
+  --accent:#E2A64A; --accent-soft:#3B2F1B; --accent-ink:#1A1408;
+  --bottle:#62B98F; --bottle-soft:#1D3328;
+  --land:#18211C; --outside:#101612; --river:#2E5A75; --road:#2D3832; --road-major:#4A4A38; --border:#55665C;
+  --pub:#A99A86; --danger:#E27A68; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#111713; --panel:#172019; --ink:#E4EBE6; --muted:#93A39A; --line:#2A362F;
+  --accent:#E2A64A; --accent-soft:#3B2F1B; --accent-ink:#1A1408;
+  --bottle:#62B98F; --bottle-soft:#1D3328;
+  --land:#18211C; --outside:#101612; --river:#2E5A75; --road:#2D3832; --road-major:#4A4A38; --border:#55665C;
+  --pub:#A99A86; --danger:#E27A68; color-scheme:dark}
+
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.45}
+*{box-sizing:border-box}
+button,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.app{height:100%;display:grid;grid-template-columns:minmax(320px,380px) 1fr;}
+.panel{background:var(--panel);border-right:1px solid var(--line);overflow-y:auto;min-width:0;
+  padding-block:20px 28px;padding-left:max(18px,env(safe-area-inset-left,0px));padding-right:18px;
+  display:flex;flex-direction:column;gap:22px}
+.mapwrap{position:relative;min-width:0}
+#map{position:absolute;inset:0;background:var(--outside)}
+
+header h1{font-family:var(--f-display);font-weight:700;font-size:26px;letter-spacing:-.01em;margin:0;line-height:1.1}
+header p{margin:6px 0 0;color:var(--muted);max-width:60ch;text-wrap:pretty}
+.status{font-size:12px;color:var(--muted);display:flex;gap:6px;align-items:center;margin-top:8px}
+.share{display:flex;flex-direction:column;gap:6px;margin-top:14px;padding:12px;border:1px dashed var(--line);border-radius:10px}
+.share label{font-size:12px;color:var(--muted)}
+.share .row{flex-wrap:nowrap}
+.share input{font-family:var(--f-mono);font-size:12px;min-width:0}
+.btn.ghost.newroom{align-self:flex-start;padding:2px 0;font-size:12.5px}
+.btn.ghost.newroom:hover{color:var(--accent)}
+.status .dot{width:7px;height:7px;border-radius:50%;background:var(--muted)}
+.status.ok .dot{background:var(--bottle)} .status.warn .dot{background:var(--accent)}
+
+section{display:flex;flex-direction:column;gap:10px}
+.eyebrow{font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:600;display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.eyebrow span{text-transform:none;letter-spacing:0;font-weight:400}
+
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:12px;color:var(--muted)}
+input[type=text]{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;width:100%}
+input[type=text]:focus{border-color:var(--accent);outline:none}
+
+.btn{border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:8px 12px;cursor:pointer;font-weight:500}
+.btn:hover{border-color:var(--ink)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary.armed{background:var(--ink);border-color:var(--ink);color:var(--panel)}
+.btn.ghost{background:transparent;border-color:transparent;color:var(--muted);padding:4px 6px}
+.btn.ghost:hover{color:var(--danger)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+
+/* my points: rows on a bill */
+.bill{display:flex;flex-direction:column;border-top:1px dashed var(--line)}
+.pt{display:grid;grid-template-columns:auto 1fr auto;gap:6px 10px;align-items:center;padding:10px 0;border-bottom:1px dashed var(--line);cursor:pointer}
+.pt.sel{background:linear-gradient(90deg,var(--accent-soft),transparent 80%);margin-inline:-8px;padding-inline:8px;border-radius:6px}
+.pt .num{font-family:var(--f-mono);font-size:12px;color:var(--muted);width:22px}
+.pt .ttl{font-weight:500}
+.pt .sub{grid-column:2 / 4;display:flex;flex-direction:column;gap:6px}
+.tally{display:flex;gap:2px;align-items:center}
+.tally button:nth-of-type(6){margin-left:8px}
+.tally button{width:16px;height:22px;border:0;background:none;padding:0;cursor:pointer;position:relative}
+.tally button::before{content:"";position:absolute;left:7px;top:2px;width:2px;height:18px;border-radius:1px;background:var(--line);transform:rotate(6deg)}
+.tally button.on::before{background:var(--ink)}
+.tally .lbl{font-size:12px;color:var(--muted);margin-left:8px}
+.radius{display:flex;align-items:center;gap:10px}
+.radius input{flex:1;accent-color:var(--accent);min-width:0}
+.radius output{font-family:var(--f-mono);font-size:12px;width:56px;text-align:right;font-variant-numeric:tabular-nums}
+.hint{font-size:12px;color:var(--muted);text-wrap:pretty}
+
+/* people */
+.people{display:flex;flex-wrap:wrap;gap:6px}
+.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:3px 10px 3px 4px;background:var(--bg);cursor:pointer;font-size:13px}
+.chip img{width:20px;height:20px;border-radius:50%}
+.chip .sw{width:10px;height:10px;border-radius:50%;margin-left:4px}
+.chip.off{opacity:.45;text-decoration:line-through}
+.chip small{color:var(--muted);font-family:var(--f-mono);font-size:11px}
+
+/* mode */
+.seg{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{border:0;background:var(--bg);padding:8px 6px;cursor:pointer;font-size:13px;line-height:1.25}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed=true]{background:var(--ink);color:var(--panel)}
+
+/* results */
+.summary{font-size:13px;color:var(--muted)}
+.summary b{color:var(--ink);font-family:var(--f-mono);font-weight:600}
+ol.res{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+ol.res li{display:grid;grid-template-columns:28px 1fr auto;gap:2px 10px;padding:9px 8px;border-radius:8px;cursor:pointer;align-items:center}
+ol.res li:hover,ol.res li.sel{background:var(--bg)}
+ol.res .rk{font-family:var(--f-display);font-weight:700;font-size:15px;color:var(--accent);text-align:center}
+ol.res .nm{font-weight:600;min-width:0;overflow-wrap:anywhere}
+ol.res .br{font-size:12px;color:var(--muted)}
+ol.res .sc{font-family:var(--f-mono);font-size:13px;font-variant-numeric:tabular-nums;text-align:right}
+ol.res .bar{grid-column:2 / 4;height:4px;border-radius:2px;background:var(--line);overflow:hidden}
+ol.res .bar i{display:block;height:100%;background:var(--accent)}
+ol.res li.all .bar i{background:var(--bottle)}
+.pill{display:inline-block;font-size:10.5px;font-weight:600;letter-spacing:.03em;padding:1px 7px;border-radius:999px;background:var(--bottle-soft);color:var(--bottle);margin-left:6px;vertical-align:1px;white-space:nowrap}
+.dots{display:inline-flex;gap:3px;margin-left:6px;vertical-align:1px}
+.dots i{width:7px;height:7px;border-radius:50%}
+.empty{border:1px dashed var(--line);border-radius:10px;padding:14px;color:var(--muted);font-size:13px;text-wrap:pretty}
+.empty b{color:var(--ink)}
+
+/* map bits */
+.leaflet-container{font-family:var(--f-body);background:var(--outside)}
+.osm-tiles{filter:saturate(.55) contrast(.95)}
+.tiles-dark .osm-tiles{filter:invert(1) hue-rotate(180deg) saturate(.4) brightness(.85) contrast(.9)}
+.placing #map,.placing .leaflet-container{cursor:crosshair}
+.lbl-place{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);white-space:nowrap;text-shadow:0 0 3px var(--land),0 0 3px var(--land);pointer-events:none}
+.pin{width:18px;height:18px;border-radius:50%;border:3px solid var(--panel);box-shadow:0 1px 4px rgba(0,0,0,.35);cursor:grab}
+.pin.sel{outline:2px solid var(--ink);outline-offset:1px}
+.rankpin{width:24px;height:24px;border-radius:50% 50% 50% 4px;transform:rotate(-45deg);background:var(--accent);border:2px solid var(--panel);box-shadow:0 1px 4px rgba(0,0,0,.35);display:grid;place-items:center}
+.rankpin.all{background:var(--bottle)}
+.rankpin span{transform:rotate(45deg);font-family:var(--f-display);font-size:11px;font-weight:700;color:var(--panel)}
+.leaflet-popup-content-wrapper,.leaflet-popup-tip{background:var(--panel);color:var(--ink);box-shadow:0 4px 18px rgba(0,0,0,.25)}
+.leaflet-popup-content{margin:12px 14px;font-size:13px;min-width:200px}
+.pop h3{font-family:var(--f-display);font-size:14px;margin:0 0 2px;font-weight:700;line-height:1.25}
+.pop .br{color:var(--muted);font-size:12px}
+.pop table{border-collapse:collapse;width:100%;margin:8px 0}
+.pop td{padding:2px 0;font-size:12px}
+.pop td:last-child{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.pop .links{display:flex;gap:12px;font-size:12px}
+.pop a{color:var(--accent)}
+.leaflet-bar a,.leaflet-bar a:hover{background:var(--panel);color:var(--ink);border-color:var(--line)}
+.leaflet-control-attribution{background:color-mix(in srgb,var(--panel) 80%,transparent)!important;color:var(--muted)!important}
+.leaflet-control-attribution a{color:var(--muted)!important}
+.maphint{position:absolute;z-index:500;left:50%;transform:translateX(-50%);top:calc(12px + env(safe-area-inset-top,0px));background:var(--ink);color:var(--panel);padding:7px 14px;border-radius:999px;font-size:13px;font-weight:500;box-shadow:0 2px 10px rgba(0,0,0,.25);white-space:nowrap}
+.legend{position:absolute;z-index:500;left:max(12px,env(safe-area-inset-left,0px));bottom:calc(12px + env(safe-area-inset-bottom,0px));background:color-mix(in srgb,var(--panel) 92%,transparent);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:11.5px;color:var(--muted);display:flex;flex-direction:column;gap:4px}
+.legend div{display:flex;align-items:center;gap:6px}
+.legend i{display:inline-block;width:22px;height:8px;border-radius:2px}
+
+@media (max-width:760px){
+  .app{grid-template-columns:1fr;grid-template-rows:56vh auto;height:auto;min-height:100%}
+  .mapwrap{grid-row:1;height:56vh}
+  .panel{grid-row:2;border-right:0;border-top:1px solid var(--line);overflow:visible;padding-right:max(16px,env(safe-area-inset-right,0px));padding-left:max(16px,env(safe-area-inset-left,0px))}
+  header h1{font-size:22px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="app" id="app">
+  <aside class="panel">
+    <header>
+      <h1>Kam na pivo</h1>
+      <p>Каждый ставит на карту Праги точки, где ему удобно встретиться, и радиус, сколько готов пройти. Там, где круги пересекаются, ищем пивную.</p>
+      <div class="status" id="status"><span class="dot"></span><span id="statusText">Подключаемся…</span></div>
+      <div class="share" id="share" hidden>
+        <label for="shareUrl">Ссылка на эту встречу — кинь друзьям</label>
+        <div class="row"><input type="text" id="shareUrl" readonly><button class="btn" id="copyBtn" type="button">Скопировать</button></div>
+        <button class="btn ghost newroom" id="newRoomBtn" type="button">Начать новую встречу</button>
+      </div>
+    </header>
+
+    <section aria-labelledby="meH">
+      <div class="eyebrow" id="meH">Твои точки <span id="meCount"></span></div>
+      <div class="field">
+        <label for="nick">Как тебя подписать</label>
+        <input type="text" id="nick" maxlength="40" placeholder="Например, Петя" autocomplete="nickname">
+      </div>
+      <div class="row">
+        <button class="btn primary" id="addBtn" type="button">＋ Поставить точку</button>
+        <span class="hint" id="addHint"></span>
+      </div>
+      <div class="bill" id="myPoints"></div>
+      <p class="hint">Вес от 1 до 10 — это čárky, как на účtence: чем больше палочек, тем сильнее тебе хочется именно туда. Точку можно перетащить на карте.</p>
+    </section>
+
+    <section aria-labelledby="pplH">
+      <div class="eyebrow" id="pplH">Компания <span id="pplCount"></span></div>
+      <div class="people" id="people"></div>
+    </section>
+
+    <section aria-labelledby="resH">
+      <div class="eyebrow" id="resH">Куда идём</div>
+      <div class="seg" role="group" aria-label="Как считать">
+        <button type="button" id="modeFair" aria-pressed="true">Чтобы всем было норм</button>
+        <button type="button" id="modeAvg" aria-pressed="false">Удобно в среднем</button>
+      </div>
+      <div class="summary" id="summary"></div>
+      <ol class="res" id="results"></ol>
+    </section>
+  </aside>
+  <div class="mapwrap">
+    <div id="map" role="application" aria-label="Карта Праги"></div>
+    <div class="maphint" id="mapHint" hidden>Нажми на карту, чтобы поставить точку</div>
+    <div class="legend" id="legend">
+      <div><i style="background:linear-gradient(90deg,transparent,var(--accent))"></i>удобство для компании</div>
+      <div><i style="background:var(--bottle);opacity:.45"></i>внутри кругов у всех</div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script>
+const TARGET = "github";
+const PUBS = [["Ajmovka",50.16518,14.39672,"",""],["Amarula",50.12419,14.4562,"",""],["BEERTIME",50.07125,14.40476,"various","https://www.beertime.pub/"],["Bad Flash Bar",50.07158,14.44705,"Bad Flash","http://www.badflash.cz"],["Bad Flash Bar Karlín",50.0938,14.45618,"","https://www.badflash.cz/nase-podniky/bad-flash-bar-karlin/"],["Balbínova poetická hospůdka",50.07692,14.4339,"","http://balbinka.cz/"],["Bamboo",50.08337,14.50617,"",""],["Bar \"26\"",50.07973,14.45544,"",""],["Bar 23",50.07988,14.41632,"",""],["Bar Klokan",50.07256,14.44816,"",""],["Bar NDR",50.08554,14.5762,"",""],["Bar Napalmě",50.10406,14.47303,"yes, various","https://www.napalme.cz/"],["Bar Vesna",50.0709,14.48778,"Hubertus",""],["Beach club",50.11325,14.4676,"",""],["Beer And Friends",50.07834,14.42687,"",""],["Beer Station",50.10405,14.49041,"",""],["Behind the Courtain",50.08505,14.45183,"",""],["Bella",50.12575,14.48816,"","https://www.restauracebella.cz/"],["Belzepub",50.08249,14.4443,"yes","https://www.belzepub.cz/"],["Bernard Pub",50.08857,14.46928,"","https://bernardpub.cz/"],["Billiard Svět",50.0753,14.66451,"",""],["Billiard klub Harlequin",50.06565,14.45738,"","https://www.harlequinpraha.cz/"],["Bistro Panda",50.06627,14.45602,"",""],["Bistro Pražanda",50.09345,14.47581,"","https://prazacka.cz/grill-park"],["Bistro minigolf",50.07158,14.4935,"",""],["Bistro u Daltnů",50.07519,14.32468,"",""],["Blanice",50.01973,14.49747,"","https://klubblanice.cz/"],["Bohemia boards &brews",50.10184,14.47388,"",""],["Bohužel bar",50.08347,14.45109,"",""],["Boleslavka",50.12359,14.49106,"",""],["Bowling v Továrně",50.06473,14.44256,"","https://bowlingvtovarne.cz/"],["Branická Formanka",50.08025,14.42391,"",""],["Brouk",50.06984,14.40692,"",""],["Brácha Na Triku",50.06561,14.42939,"","https://brachanatriku.cz/"],["Bukanýr",50.09349,14.42768,"","https://www.bukanyr.cz/"],["Bunkr",50.04525,14.33185,"",""],["Burger Pub Na Hubálce",50.08984,14.3845,"yes",""],["Butterfly zone",50.11563,14.47063,"",""],["BŘEŽANKA",50.09513,14.51862,"",""],["Břevnovský výčep",50.08403,14.35591,"","https://brevnovskyklaster.cz/vycep/"],["Cafe Alternatif Mezibranská",50.07906,14.42966,"",""],["Chmeloun",50.14386,14.43164,"","https://m.facebook.com/pivnibarchmeloun/&ved=2ahUKEwjF7vi2yYSOAxVSVvEDHd7JPMQQjjh6BAhrEAE&usg=AOvVaw3XsET3IRYq9UgkV4YlYfRj"],["Citadela",50.06307,14.41724,"",""],["Club Montana",50.09993,14.48793,"",""],["Cyklovna",50.03495,14.44795,"",""],["Dejvická nádražka",50.09723,14.40005,"","http://nadrazka.cz/"],["Deskohub",50.10314,14.4792,"","https://www.deskohub.cz/"],["Desítka",50.07976,14.39561,"",""],["Diego pivní bar",50.0949,14.45597,"various","http://www.diegopivnibar.cz/"],["Dno Pytle",50.07711,14.44298,"","http://www.dnopytle.cz/"],["Do Větru",50.08804,14.3528,"Unětice","https://dovetru.info/"],["Drunken Monkey",50.09171,14.42087,"",""],["Dungie's",50.0771,14.42795,"","http://dungies.cz"],["Dívčí skok",50.0997,14.32069,"","https://www.divciskok.cz/"],["Dřevona",50.10878,14.47539,"",""],["Dřevák 2",50.07222,14.68094,"",""],["Empír steak Letňany",50.13702,14.51644,"","https://www.empirsteak.cz/"],["Fat Cat",50.08606,14.41869,"","https://www.fat-cat.cz"],["Fat Cat Beerhouse",50.08597,14.4189,"",""],["Fatal Music Club",50.08608,14.45525,"","https://fatalclub.cz/"],["Ferdinand",50.07165,14.46121,"","https://www.pivovarferdinand.cz/"],["Ferdinand",50.10429,14.43213,"",""],["Formanka 1968",50.0984,14.35938,"",""],["Freemasonic Club",50.08859,14.42364,"",""],["Galerka",50.06837,14.43324,"","http://valaskovi.cz/galerka/"],["Golden Kettle",50.08644,14.42079,"",""],["Good bar",50.08023,14.3908,"",""],["Gossip Bar",50.07664,14.4243,"","https://www.gossipbar.cz/"],["Gulden Draak Bierhuis",50.09131,14.43119,"","https://www.guldendraak.cz/"],["Gunners Pub",50.08979,14.47143,"",""],["Gwern",49.99567,14.60318,"","https://gwern.cz/"],["HOPS Lokálka",49.99721,14.66372,"",""],["Hadovka",50.05145,14.45608,"",""],["Hamerský sklípek",50.05156,14.48565,"","http://hamerskysklipek.cz/"],["Helbig",49.9808,14.49819,"",""],["Hells Bells",50.07151,14.40566,"","https://www.hellsbells.cz"],["Herba café",50.08343,14.45028,"",""],["Herna & bar",50.08331,14.50711,"",""],["Hospoda 213",50.02563,14.51529,"",""],["Hospoda Konrad",50.11268,14.4171,"",""],["Hospoda Na Hřišti",49.98347,14.50643,"",""],["Hospoda Na Pahorku",50.04882,14.5469,"",""],["Hospoda Na padesátém",50.06617,14.50578,"",""],["Hospoda Pohoda",50.06546,14.43943,"","http://www.hospodapohoda.cz/"],["Hospoda U Bočana",50.10487,14.53025,"",""],["Hospoda U Cinklý Pentle",49.98521,14.28649,"",""],["Hospoda U lesa",50.08769,14.67115,"Konrád",""],["Hospůdka KOZÍ BAR",50.17275,14.36402,"yes",""],["Hospůdka Na Růžku",50.02238,14.48701,"kozel",""],["Hospůdka Na růžku",50.17883,14.51795,"",""],["Hospůdka Nad Viktorkou",50.08287,14.44869,"","https://www.nadviktorkou.cz/"],["Hospůdka Sokol",50.07141,14.40787,"","https://www.restauracesokol.cz/jidelni-a-napojovy-listek/"],["Hospůdka U Bobra",50.11192,14.61741,"",""],["Hospůdka U mazané kačeny",50.02232,14.48767,"","http://www.mazanakacena.cz/"],["Hospůdka U pošty – Doma",50.0748,14.49138,"",""],["Hospůdka na Marvánku",49.98418,14.65899,"",""],["Hospůdka na hřišti",49.97175,14.66636,"yes",""],["Hospůdka na hřišti",49.94066,14.38304,"",""],["Hospůdka na hřišti",50.05226,14.5203,"",""],["Hospůdka na ubytovně",50.14719,14.64875,"",""],["Hospůdka u Davida",50.12127,14.25739,"",""],["Hospůdka u Kopeckých",50.05492,14.48976,"pilsner_urquell, kozel",""],["Hospůdka u Pařezu",50.0472,14.3441,"",""],["Hostinec",50.09939,14.4245,"Klášter, various",""],["Hostinec \"u Anduly\"",50.08685,14.37603,"staropramen",""],["Hostinec Drinopol",50.08374,14.37125,"","http://www.drinopol.cz/"],["Hostinec Lokálka",50.08372,14.25695,"",""],["Hostinec U Jendy",50.06988,14.41849,"",""],["Hostinec U houbaře",50.10118,14.43342,"",""],["Hostinec U kohouta",50.03575,14.41401,"",""],["Hostinec V Rybníčkách",50.07067,14.508,"yes, various",""],["Hostinec nad sarkou",50.09234,14.32401,"",""],["Hostinec staré zátiší",50.1032,14.39828,"",""],["Hostinec u Rotundy",50.08256,14.4145,"","http://www.pivniceurotundy.cz/"],["Hostinec v Lucemburské",50.07903,14.45606,"",""],["House Party",50.08775,14.42361,"",""],["Hurdálkova chýše jedová",50.04201,14.3898,"",""],["Hájecká hospůdka",50.05089,14.62852,"","https://www.hajecka.cz/"],["Illegal Beer",50.07825,14.42685,"","https://www.facebook.com/illegalbeer"],["J.J. Murphy's",50.08723,14.40338,"","http://www.bestirishbarprague.com/"],["Jakobs bar",50.08106,14.25846,"",""],["James Joyce",50.09109,14.42324,"","https://www.jamesjoyceprague.cz/"],["Jedenáctka",49.9833,14.58067,"",""],["Jelínkova plzeňská pivnice",50.08167,14.42205,"",""],["Ježkovy voči",50.07783,14.4267,"","https://www.jezkovyvocibar.cz"],["Jirčanská hospůdka Na návsi",49.94823,14.52053,"",""],["KD Barikádníků",50.07346,14.49313,"",""],["KD Barikádníků",50.07352,14.49301,"",""],["KLUB 66 \"Radost\"",50.08446,14.3639,"Černá hora","https://www.klub66.cz/"],["Kabina",49.94843,14.52681,"","https://www.facebook.com/KabinaJircany"],["Kabina bistro & bar",50.08934,14.45609,"","https://grillfreaks.cz/kabina-bistro-bar/"],["Kantýna FC Háje",50.03612,14.53436,"",""],["Karlínská pivnice",50.09206,14.45733,"",""],["Kavarna Na Šumavě",50.07576,14.44376,"","https://www.kavarnanasumave.cz/"],["Kbelský pivovar",50.13055,14.54766,"",""],["Kellyxír - alchymistická hospůdka",50.08806,14.39858,"",""],["Kiosek Říční lázně",49.97467,14.35808,"",""],["Klaster Monastery Beer Garden",50.08537,14.38862,"",""],["Klub Buben",50.07721,14.41547,"",""],["Klub C",50.12998,14.37612,"","http://klubc.cz"],["Klub Jih",50.13072,14.3771,"",""],["Klub Sokol Zlatníky",49.96295,14.48101,"",""],["Klubová hospůdka na cibulkach",50.06552,14.36567,"",""],["Knoflík",50.07027,14.40455,"",""],["Kobka",50.06932,14.41122,"",""],["Kocour",50.06196,14.44585,"",""],["Koley Excelent Urban Pub",50.02008,14.49385,"",""],["Kolčavka",50.10526,14.48648,"",""],["Kontakt",50.07854,14.42233,"",""],["Kočárek",50.07236,14.38955,"",""],["Kristian Marco riverside cafe",50.08253,14.41295,"",""],["Krkonošská hospůdka",50.09829,14.40649,"","https://www.krkonosskahospudka.cz/"],["Krušovická Šalanda",50.06509,14.30113,"Krušovice","https://www.restauracesalanda.cz/cs/salanda/repy"],["Království",50.08216,14.4512,"",""],["Krčma U Krále Brabantského",50.08898,14.40149,"","http://www.krcmabrabant.cz"],["Krčma U Parašutistů",50.07588,14.4164,"","https://www.uparasutistu.cz/"],["Kulturáček na Bílé Hoře",50.07257,14.31903,"","http://www.kulturacek.cz/"],["Libocká studna",50.08566,14.33484,"","http://www.libockastudna.cz/"],["Lichocevská hospůdka",50.15273,14.28349,"",""],["Lidl Summer Terrace",50.10807,14.42467,"argus","https://www.lidl.cz/c/lidl-letni-terasa/s10095905"],["Lidový dům",50.03024,14.60043,"",""],["Londoners",50.07773,14.42473,"",""],["Lucaffé",50.02797,14.50741,"",""],["Lya Beer Café",50.07103,14.4509,"craft_beer","https://www.lyabeercafe.cz/"],["Magister Kelley",50.06691,14.43399,"",""],["Malostranská beseda",50.0883,14.4049,"","https://www.malostranska-beseda.cz/"],["Mark's pub",50.07032,14.40327,"","https://www.facebook.com/markspubprague/"],["McCarthy's",50.08428,14.42158,"","https://www.mccarthys.cz"],["Merlin",50.07083,14.43336,"",""],["Mikulovka",50.03034,14.51152,"",""],["Milá tchýně",50.07765,14.41783,"","https://milatchyne.cz/"],["Minus",50.13428,14.50754,"",""],["Mlíkárna",50.08014,14.44041,"",""],["Modřanský biograf",50.00348,14.40467,"",""],["Morava",50.08284,14.44753,"",""],["Moving World",50.08065,14.42226,"",""],["Mrtvá ryba",50.07242,14.42307,"",""],["Music pub woodoo",50.08323,14.45013,"","http://www.bamboopub.cz/o-woodoo"],["My Dear Watson",50.09359,14.45664,"",""],["My People Bar",50.08599,14.42029,"",""],["Na Bašte",50.09595,14.4202,"",""],["Na Betáni",50.00767,14.47923,"",""],["Na Cvičišti",50.04334,14.38725,"",""],["Na Hrázi by Prestigebrands",50.06588,14.26703,"",""],["Na Hřišti",50.14787,14.44685,"",""],["Na Hřišti",50.13649,14.38314,"",""],["Na Kamínce",49.96386,14.38836,"",""],["Na Korunce",50.07568,14.59855,"",""],["Na Pavlači",50.03126,14.5316,"Gambrinus",""],["Na Poděbradské",50.10172,14.50415,"",""],["Na Poustce",50.03298,14.26766,"",""],["Na Rajské",50.10648,14.56189,"",""],["Na Rychte",50.06133,14.46808,"",""],["Na Rychtě - zahrádka",50.03285,14.50016,"",""],["Na Růžku",50.1126,14.59758,"",""],["Na Růžku",50.16544,14.37525,"",""],["Na Schůdku",50.07847,14.44574,"",""],["Na Slamníku",50.10373,14.40844,"","https://www.na-slamniku.cz/"],["Na Staré",50.01659,14.23181,"",""],["Na Staré Cihelně",50.12719,14.45444,"",""],["Na Struze",50.07471,14.48807,"","https://restaurace-nastruze.cz/"],["Na Svorností",50.13208,14.45943,"",""],["Na Veselí",50.05678,14.44156,"",""],["Na Zastávce",50.00724,14.40364,"",""],["Na Zápraží",50.13042,14.44544,"",""],["Na Závisti",50.10833,14.68133,"",""],["Na hradbách",50.06361,14.42218,"Pilsner Urquell, Radegast",""],["Na hřišti",49.98915,14.32704,"",""],["Na sekyrce",50.10034,14.42704,"",""],["Na zahrádce",50.1672,14.40489,"únětice_11, pilsen",""],["Naše Hospoda na Růžku",50.06022,14.40963,"Staropramen","https://www.naruzkusmichov.cz/"],["Nejmenší vinárnička u středně velké vrtule",50.04621,14.55217,"","https://vrtule.majestat.cz/"],["Nemám čas",50.03245,14.48214,"","https://www.facebook.com/tz456"],["Novodvorská šipka",50.0244,14.43393,"",""],["Nudle",50.07103,14.4049,"pilsner_urquell",""],["O'Che's bar",50.08543,14.41644,"",""],["Oaza",50.08322,14.50634,"",""],["Obývák",50.07863,14.48848,"yes","https://www.tvujpivnibar.cz"],["Občerstvení",50.08435,14.56914,"",""],["Občerstvení U Bati",50.00737,14.46313,"",""],["Občerstvení na konečné - Mušárna",50.07648,14.23911,"",""],["Once upon a beer",50.07473,14.44222,"","https://www.facebook.com/ouabeer/"],["Oáza",50.10067,14.38474,"",""],["Palouček",50.11182,14.4162,"",""],["Palpost",50.14287,14.37568,"",""],["Panda",50.09014,14.43983,"",""],["Parukářka",50.08442,14.45819,"Velkopopovický Kozel","https://www.parukarka.cz/"],["Permanent Pragovka",50.10889,14.51198,"budvar, maisel's._weisse","https://www.pbfest.cz/permanent"],["Pivni Bar Zvonkova",50.05515,14.50413,"yes","http://www.pivnibarzvonkova.cz/"],["Pivnice",50.13676,14.33647,"",""],["Pivnice Darda",50.07531,14.32284,"",""],["Pivnice Ferdinand",50.10245,14.43295,"",""],["Pivnice Jamajka",50.07139,14.40682,"Postřižiny","https://www.pivnicejamajka.cz/"],["Pivnice Pipkin",50.02613,14.45154,"","https://pipkin.webnode.cz"],["Pivnice Skalka",50.06833,14.50949,"",""],["Pivnice Tunel",50.05611,14.43212,"",""],["Pivnice U Kata",50.08733,14.41929,"",""],["Pivnice U Rumlíka",50.05641,14.44396,"","https://www.facebook.com/pages/Pivnice-U-Ruml%C3%ADka/897047703642025"],["Pivnice U Vency",50.08154,14.42263,"",""],["Pivnice V Chodské",50.0738,14.44601,"",""],["Pivnice a bar u koně",50.08385,14.36909,"",""],["Pivnice pod Petřínem",50.08423,14.40457,"","http://www.pivnicepodpetrinem.cz/"],["Pivnice u Hollara",50.07727,14.47468,"",""],["Pivnice u Mejly",50.07173,14.40541,"","https://www.pivniceumejly.cz/"],["Pivnice u Průhonu",50.06517,14.30135,"",""],["Pivnice u Světa",50.10618,14.47258,"",""],["Pivnice Štupartská",50.0878,14.42469,"","https://www.pivnicestupartska.cz/"],["Pivnice Šutka",50.12534,14.44469,"","https://www.sutka.cz/"],["Pivní Jistota",50.09877,14.39806,"","http://www.facebook.com/pivni.jistota"],["Pivní Přístav",50.07354,14.41412,"yes","https://www.pivnipristav.cz/"],["Pivní Sanatorium",49.99037,14.36549,"",""],["Pivní bar",50.07793,14.46042,"",""],["Pivní bar Blanická 28",50.07757,14.43959,"","https://www.abc.cz/firma/pivni-bar-blanicka-praha/"],["Pivní bar Palma (byvala Formanka)",50.0519,14.5423,"",""],["Pivní klub 300",50.09918,14.4227,"","https://www.facebook.com/pivniklub300?fref=ts"],["Pivní lokál Ostrý",50.08445,14.45088,"",""],["Pivní rozmanitost",50.09158,14.47365,"","http://pivni-rozmanitost.cz"],["Pivní zahrada Kraft",50.06018,14.49429,"yes, various","https://pivovarkraft.cz/pivni-zahrada/"],["Pivo Grando",50.05995,14.44949,"","https://pivogrando.cz/"],["Pivo Karlín",50.09166,14.45751,"","https://www.pivokarlin.cz/"],["Pivoteka ŽižkOFF",50.08476,14.45108,"","http://www.praguebeeracademy.com/cz/pivni-klub.html"],["Pivotéka Pivo a párek",50.07558,14.45482,"",""],["Pivovar Bašta",50.06287,14.43969,"","https://www.ubansethu.cz/pivovar/"],["Pivovar Bubeneč",50.10117,14.40446,"","https://pivovarbubenec.cz"],["Pivovar Kilián",50.10825,14.48243,"",""],["Pivovar Mikulas",50.08695,14.40343,"",""],["Pivovar Prokopák",50.03653,14.36065,"yes, Pivovar_Prokopák",""],["Pivovarská krčma",50.06223,14.23347,"",""],["Pivovarská restaurace",50.05523,14.48616,"",""],["Plzeňská pivnice Petřiny",50.08866,14.34951,"",""],["Plzeňský Anny Bar",50.06519,14.4288,"",""],["Poctivej výčep",50.12619,14.44748,"Slavkov","https://poctivejvycep.webnode.cz/"],["Pod hájem",50.12618,14.4728,"Staropramen",""],["Podkováň",50.12745,14.46795,"",""],["Pohoda hospoda & bar",50.04999,14.34744,"","https://www.facebook.com/pohodahospodabar"],["Pohádka",50.10419,14.48501,"",""],["Polepšovna",50.10303,14.44928,"",""],["Polepšovna ducha",50.17634,14.36374,"","https://www.polepsovnaducha.cz/"],["Popocafepetl",50.07949,14.41466,"","http://www.popocafepetl.eu/"],["Počernický pivovar",50.08843,14.58066,"","https://www.pddp.cz/pocernicky-pivovar/"],["Prague Beer Museum",50.07449,14.43639,"","http://www.praguebeermuseum.com/"],["Prague Beer Museum",50.08507,14.414,"","https://praguebeermuseum.cz/en/"],["Prazelenina",50.11204,14.44946,"",""],["Propaganda",50.07969,14.41532,"",""],["Pub & Coctail Legend 13",50.08728,14.40564,"",""],["Publikum",50.06992,14.48919,"","https://publikum.business.site"],["Puerto Boro",49.9542,14.39435,"",""],["Pult",50.08818,14.43057,"","https://www.pult.ambi.cz"],["Puma bar",50.07019,14.48835,"Branik",""],["Pyramida",50.01866,14.35667,"",""],["Pyrát",50.06377,14.44266,"",""],["Pípa beer story",50.08916,14.4229,"","https://foodstory.cz"],["Rapid bar 65",50.09108,14.44404,"","http://www.rapidbar65.firemni-web.cz/"],["Recharging bar",50.08117,14.39319,"",""],["Restaurace Bambini",50.08991,14.47085,"",""],["Restaurace Hřiště",50.06973,14.50056,"",""],["Restaurace Olympia",50.04812,14.43513,"","https://www.olympierest.com/"],["Restaurace Pivovar Řeporyje",50.03344,14.31281,"",""],["Restaurace U Susů",49.96957,14.66553,"",""],["Restaurace v Malinové",50.05741,14.50276,"yes, pilsner_urquell, gambrinus, velkopopovický_kozel",""],["Rock bar Gorila",50.07369,14.39417,"","https://rock-bar-gorila.business.site/"],["Rock n Beer Bar",50.07919,14.427,"",""],["Rocky O' Reillys",50.07952,14.42603,"","https://www.rockyoreillys.cz/"],["Rohan beer garden",50.10301,14.46454,"","https://rohanbg.cz/"],["Rugby Club Praga",50.10591,14.51419,"",""],["Rugby bistro",50.10866,14.48795,"",""],["SMÄD",50.08336,14.4541,"",""],["Salmovská literární kavárna",50.075,14.42263,"","https://www.salmovska.cz/"],["Samotoč u kozla",49.99678,14.66346,"",""],["Satanka",50.12811,14.47565,"",""],["Sejmor",50.06973,14.40303,"","https://sejmor.cz/"],["Sklepní pivnice Smíchoff",50.06,14.40969,"Gambrinus",""],["Sladovna Lužiny",50.04359,14.33212,"cvikov","https://restauracesladovna.cz"],["Slunečnice",50.02527,14.49243,"yes",""],["Slánka",49.95938,14.32285,"",""],["Smíchovská krčma",50.07328,14.39334,"","http://smichovska-krcma.cz/"],["Snack bar Blesk",50.0245,14.51517,"",""],["Snack bar U Dandů",50.07596,14.4394,"",""],["Sparta",50.10579,14.55821,"",""],["Spartak",50.13266,14.54597,"",""],["Special Pub U Bráchy",50.06839,14.41656,"",""],["Sport Bar Chelsea",50.13615,14.51405,"",""],["Sport Bar Gallo",50.06183,14.4383,"",""],["Sport bar Pohoda",50.09079,14.42652,"",""],["Sport club Vitkov",50.08888,14.45617,"",""],["Sportovní hospoda",50.11006,14.60022,"","https://www.sportovnihospoda.cz/"],["Stará Ořechovka",50.09522,14.3804,"AB InBev","https://www.staraorechovka.cz/"],["Statenická krčma",50.1411,14.31872,"",""],["Steampunk",50.08963,14.42169,"","https://www.steampunkprague.cz"],["Studio Severka",50.02835,14.52015,"",""],["Studnka",50.05814,14.42397,"",""],["Stánek",50.03186,14.49599,"",""],["TJ Solidarita",50.06979,14.50225,"yes",""],["Tančírna",50.04785,14.41332,"",""],["The Down Under",50.07689,14.44162,"","https://downunder.cz/"],["The Dubliner Prague",50.08805,14.42323,"","https://www.aulddubliner.cz/"],["The Dutch Pub",50.08058,14.42097,"","https://www.dutchpub.cz/"],["The PUB",50.07615,14.4283,"",""],["The Pitchers",50.06877,14.4114,"",""],["Tornádo",49.94877,14.33861,"Gambrinus","http://restauracetornado.cz/"],["Turnovská pivnice",50.08462,14.43992,"","https://turnovskapivnice.cz/"],["Tvrdej dopad",50.06492,14.43093,"",""],["Těsně vedle Burundi",50.10136,14.42018,"","http://www.burundi.cz"],["U Bartoše",50.09361,14.44996,"",""],["U Beránků",50.04526,14.27989,"",""],["U Bláhů",49.96762,14.37805,"yes, various",""],["U Bohemky",50.06809,14.45584,"",""],["U Boudů",50.01074,14.62765,"",""],["U Budyho",50.10651,14.46487,"",""],["U Dragouna",50.05711,14.42302,"",""],["U Dášeny",50.12499,14.57173,"",""],["U Džbánu",50.062,14.44768,"","https://www.u-dzbanu.cz/"],["U Fausta",50.1491,14.51934,"",""],["U Formánků",50.07772,14.25305,"",""],["U Habásků",50.08578,14.44646,"","https://www.uhabasku-zizkov.cz/"],["U Herčíků",50.15285,14.53135,"","https://uherciku.cz/"],["U Holečků",50.08525,14.33738,"yes, Pilsner_Urquell","http://www.uholecku.cz/"],["U Horkých",50.10551,14.4715,"","https://www.uhorkych.cz/"],["U Hrocha",50.08919,14.40319,"",""],["U Huberta",50.12434,14.5059,"Staropramen",""],["U Jarolímků",50.11374,14.47298,"","https://www.ujarolimku.com/"],["U Jeffa",50.01283,14.40435,"Kout","https://cyklisticky-klub-u-jeffa.webnode.cz/"],["U Jeníka",50.13958,14.50512,"",""],["U Jeníčka",50.05212,14.52854,"",""],["U Jonáše",50.09776,14.67065,"",""],["U Járina",49.95849,14.37041,"",""],["U Kajmana",50.02337,14.5166,"",""],["U Kapličky",50.1253,14.37327,"",""],["U Karla",50.07851,14.41723,"",""],["U Kačera",50.1435,14.57894,"",""],["U Kaštanu",50.08368,14.36109,"","https://kastan.unijazz.cz/"],["U Kestřánků",49.98681,14.35681,"",""],["U Kladiva",50.08091,14.48774,"","http://www.ukladiva.cz/"],["U Klokočnika",50.05876,14.44197,"",""],["U Kmotra",50.07892,14.48831,"",""],["U Knotků",50.02968,14.35614,"",""],["U Kocoura",50.08869,14.402,"",""],["U Korychů",50.1604,14.3118,"","http://www.ukorychu.cz"],["U Kovadliny",50.15832,14.40932,"",""],["U Kozlů",49.99674,14.66319,"",""],["U Králů",50.10921,14.47411,"",""],["U Křížků",50.09791,14.68639,"",""],["U Lasíků",50.14963,14.35975,"","http://ulasiku.cz/"],["U Libuše",50.06935,14.41541,"",""],["U Lva",50.03501,14.31557,"",""],["U Magistra Kelly",50.0876,14.39787,"","https://www.umagistrakelly.cz/"],["U Malého Berlína",50.10313,14.43462,"Pilsner Urquell, Kozel","https://www.umalehoberlina.cz/"],["U Míšků",50.14965,14.44286,"",""],["U Neostichů",50.06714,14.40014,"Svijany, Gambrinus",""],["U Ondřeje",49.98229,14.36455,"",""],["U Petra a Markéty",50.04439,14.49771,"","https://u-petra-a-markety.cz/"],["U Petrů",50.0586,14.33788,"",""],["U Pinkasů",50.08297,14.42391,"","http://www.upinkasu.cz/"],["U Pižďucha",50.08515,14.44783,"","https://www.upizducha.cz/"],["U Plevů",50.05555,14.445,"",""],["U Posledního Kelta",49.97344,14.39951,"",""],["U Potoka",50.05888,14.45123,"",""],["U Prcka",50.1149,14.46947,"pilsner_urquell, svijany, gambrinus","https://hospudka-uprcka0.webnode.cz/"],["U Procházků",50.04787,14.44127,"",""],["U Rosů",50.03014,14.60562,"",""],["U Rychlé Želvy",50.03444,14.5236,"",""],["U Sani",50.09243,14.44636,"",""],["U Smolíka",50.08656,14.66475,"",""],["U Smolíků",50.06247,14.40942,"",""],["U Sparty",50.03102,14.40409,"","http://www.spartastanek.cz/"],["U Stadionu",50.06952,14.46986,"",""],["U Standy",50.07025,14.45367,"",""],["U Starejch hadrů",50.07183,14.44987,"","http://www.zachlastat.kvalitne.cz/"],["U Studánky",50.01438,14.49466,"more",""],["U Stříbrné kočky",50.08652,14.38744,"pilsner urquell","https://www.ustribrnekocky.cz/"],["U Sudu",50.07894,14.42207,"","http://www.usudu.cz/"],["U Sázelů",50.02007,14.43985,"",""],["U Tichnů",50.14568,14.64811,"",""],["U Tří Grácií",49.98975,14.67719,"Pilsner Urquell, Kácov",""],["U Tří Soudků",50.06654,14.45542,"",""],["U Tří kočiček",50.0757,14.42451,"",""],["U Ulrichů",50.12643,14.57552,"",""],["U Valentů",50.12635,14.36673,"",""],["U Valtrů",49.96159,14.29244,"",""],["U Velké Prahy",50.03375,14.59547,"",""],["U Voháků",50.11281,14.60817,"","http://restauraceuvohaku.cz"],["U Vystřelenýho voka",50.08713,14.44957,"","http://www.uvoka.cz/"],["U Václava",50.15632,14.24933,"",""],["U Váhy",50.06892,14.40631,"",""],["U Vávrů",50.07637,14.43767,"","http://vinarna-uvavru.cz/"],["U Zdi",50.10483,14.48967,"",""],["U Zeleného ptáka",50.0221,14.48746,"",""],["U Zlaté palmy",50.12439,14.45022,"",""],["U báby",50.09065,14.44085,"",""],["U gólmana",50.10333,14.44594,"",""],["U hoblinky",49.94847,14.33174,"",""],["U medvěda",50.01356,14.62595,"",""],["U plavců",50.07058,14.41576,"",""],["U suchý dásně",50.07084,14.41646,"","https://www.suchadasen.cz/"],["U velblouda",50.1,14.4282,"",""],["U Černého vola",50.08815,14.39185,"Kozel",""],["U Čížků",50.08293,14.64179,"",""],["U čtyř bernardýnů",50.02497,14.43645,"","http://www.uctyrbernardynu.cz/"],["U Řeháků",50.16753,14.44154,"",""],["U Špačka",50.11877,14.46106,"",""],["U Švejka",50.10538,14.39451,"gambrinus",""],["U Žabáka",50.10725,14.471,"",""],["U Žaludů",50.07724,14.41715,"","http://www.morlor.com/uzaludu/"],["UFO Bar a restaurant",50.06657,14.39899,"",""],["V Háji",50.10527,14.4542,"",""],["V Koutku",50.07719,14.40524,"",""],["V Lavičkách",49.94072,14.31971,"Konrád, Pilsner Urquell",""],["V Zápolí",50.04837,14.46807,"",""],["V Zátiší",50.07489,14.49587,"",""],["Valhalla Beer Pub",50.08127,14.42557,"","https://www.valhalla-beer.cz/"],["Vape House Prague",50.08217,14.44555,"",""],["Vinárna U Hrabala",50.10519,14.47436,"",""],["Vohrada Pub",50.08982,14.46607,"",""],["Vrtule",50.11529,14.47251,"Březňák",""],["Vrátnice",50.09146,14.45263,"",""],["Vzorkovna (Dog bar)",50.08172,14.41596,"","https://vzorkovna.biz"],["V Srdíčku",50.17664,14.41006,"",""],["Vínko Charlie",50.07809,14.41894,"",""],["Výčep Fialka",50.10615,14.48746,"",""],["Výčep U Zvonu",50.08401,14.423,"","https://www.pilsnerexperience.com/en/vycep-u-zvonu"],["Waid",50.07455,14.43107,"","https://waid.cz"],["Woodstock bar",50.06831,14.43411,"","http://www.woodstock-bar.cz/"],["Za školou",50.10215,14.40203,"","https://zaskolou.com/"],["Zahrádky Hostivař",50.05227,14.51837,"",""],["Zetko pub",50.11909,14.46243,"",""],["Zlý Časy",50.0643,14.44204,"various","http://www.zlycasy.eu/"],["Základna",50.08377,14.453,"",""],["cirkus",50.09313,14.45463,"",""],["hospůdka U Karla",50.13828,14.51305,"",""],["jazz republic",50.0841,14.41852,"","https://www.jazzrepublic.cz/"],["malý pivo",50.07264,14.4855,"yes, various","https://malypivo.cz/"],["pivnice Braník",50.01752,14.44292,"",""],["restaurace u Králů",50.13686,14.51329,"",""],["sedm°",50.09339,14.44794,"","https://www.sedmstupnu.cz/"],["u Lahváče",50.13651,14.51464,"",""],["zahrada libeň",50.11551,14.47287,"",""],["Útulna",50.12125,14.39389,"",""],["Čep & Pec - Four Elements Brewery",50.06582,14.43,"",""],["Černá/Black Swine",50.07864,14.45783,"",""],["Čerstvé pivo",50.05174,14.42016,"","https://clubtimeout.cz/"],["Čimická kozlovna",50.13578,14.43212,"",""],["Šatlava",50.07684,14.5003,"various",""],["Šedý Pes",50.06626,14.39691,"","https://www.sedypes.cz/"],["Šenkýrna Na Ledárnách",50.03911,14.43565,"","https://www.senkyrna.cz/senkyrna-na-ledarnach"],["Šohajka",50.07959,14.42305,"","https://www.hostinecsohajka.cz"],["Žerno",50.12136,14.49353,"",""],["Комоřanská pivnice",49.99083,14.40971,"",""]];
+const GEO = {};
+const PLACES = [["Staré Město",50.0870,14.4205],["Malá Strana",50.0880,14.4040],["Hradčany",50.0905,14.3965],["Nové Město",50.0790,14.4240],["Vinohrady",50.0755,14.4430],["Žižkov",50.0840,14.4560],["Karlín",50.0925,14.4520],["Holešovice",50.1035,14.4410],["Letná",50.0990,14.4230],["Dejvice",50.1005,14.3930],["Smíchov",50.0700,14.4030],["Vršovice",50.0690,14.4560],["Nusle",50.0600,14.4350],["Libeň",50.1080,14.4740],["Břevnov",50.0840,14.3600],["Strašnice",50.0730,14.4900],["Pankrác",50.0505,14.4390],["Vyšehrad",50.0640,14.4190],["Košíře",50.0700,14.3700],["Bubeneč",50.1040,14.4060]];
+
+/* ---------- utilities ---------- */
+const $ = id => document.getElementById(id);
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const FALLBACK_COLORS = ["#C2410C","#2563EB","#9333EA","#0F766E","#BE185D","#4D7C0F","#B45309","#0369A1"];
+const R_MIN=200, R_MAX=5000;
+const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
+function distM(lat1,lng1,lat2,lng2){const k=Math.cos((lat1+lat2)*Math.PI/360);const dx=(lng2-lng1)*k*111320, dy=(lat2-lat1)*110574;return Math.hypot(dx,dy);}
+function fmtR(m){return m<1000? m+" м" : (m/1000).toLocaleString("ru-RU",{maximumFractionDigits:1})+" км";}
+function uid(){return Math.random().toString(36).slice(2,9);}
+function el(tag,attrs={},...kids){const e=document.createElement(tag);for(const[k,v]of Object.entries(attrs)){if(k==="class")e.className=v;else if(k==="text")e.textContent=v;else if(k.startsWith("on"))e.addEventListener(k.slice(2),v);else e.setAttribute(k,v);}for(const k of kids)if(k!=null)e.append(k);return e;}
+function plural(n,a,b,c){const m=n%10,h=n%100;return m===1&&h!==11?a:(m>=2&&m<=4&&(h<12||h>14)?b:c);}
+
+/* ---------- state ---------- */
+const S = {
+  myId:null, db:null, user:null, online:false, readOnly:false,
+  nick:"", points:[], selected:null, placing:false,
+  others:{},           // id -> {nick, points}
+  profiles:{},         // id -> profile
+  hidden:new Set(), mode:"fair", selectedPub:null,
+};
+try{ const m=localStorage.getItem("kp_mode"); if(m==="avg"||m==="fair") S.mode=m; }catch(e){}
+
+function sanitizePoints(arr){
+  if(!Array.isArray(arr)) return [];
+  return arr.slice(0,20).map(p=>({
+    id:String(p?.id||uid()).slice(0,12),
+    lat:clamp(+p?.lat||0,49.9,50.25), lng:clamp(+p?.lng||0,14.1,14.8),
+    r:clamp(Math.round(+p?.r||1000),R_MIN,R_MAX), w:clamp(Math.round(+p?.w||5),1,10)
+  })).filter(p=>p.lat>49.9&&p.lng>14.1);
+}
+
+/* ---------- map ---------- */
+const map = L.map("map",{preferCanvas:true,zoomControl:false,minZoom:11,maxZoom:18,zoomSnap:0.5,maxBounds:[[49.85,14.05],[50.3,14.85]]}).setView([50.082,14.428],13);
+L.control.zoom({position:"topright"}).addTo(map);
+map.attributionControl.setPrefix(false).addAttribution('Карта и пивные: © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>');
+map.createPane("basePane").style.zIndex=250;
+map.createPane("heatPane").style.zIndex=300;
+map.createPane("circlePane").style.zIndex=380;
+map.createPane("pubPane").style.zIndex=420;
+const baseRenderer = L.canvas({pane:"basePane",padding:0.5});
+const pubRenderer = L.canvas({pane:"pubPane",padding:0.3});
+const circleRenderer = L.svg({pane:"circlePane"});
+
+const base = {land:null, roads:[], majors:[], river:[], border:[], labels:L.layerGroup().addTo(map)};
+function buildBase(){
+  // land: a big rectangle in land color behind everything inside the city box
+  base.land = L.rectangle([[49.9,14.15],[50.22,14.78]],{renderer:baseRenderer,stroke:false,fillOpacity:1,interactive:false}).addTo(map);
+  for(const line of GEO.roads||[]) base.roads.push(L.polyline(line,{renderer:baseRenderer,interactive:false}).addTo(map));
+  for(const line of GEO.major||[]) base.majors.push(L.polyline(line,{renderer:baseRenderer,interactive:false}).addTo(map));
+  for(const line of GEO.river||[]) base.river.push(L.polyline(line,{renderer:baseRenderer,interactive:false,lineCap:"round",lineJoin:"round"}).addTo(map));
+  for(const line of GEO.border||[]) base.border.push(L.polyline(line,{renderer:baseRenderer,interactive:false}).addTo(map));
+  for(const [n,lat,lng] of PLACES) L.marker([lat,lng],{interactive:false,keyboard:false,icon:L.divIcon({className:"lbl-place",html:n,iconSize:null})}).addTo(base.labels);
+}
+function styleBase(){
+  if(tiles){ document.documentElement.classList.toggle("tiles-dark",tiles._kpDark()); return; }
+  if(!base.land) return;
+  const z=map.getZoom(), k=Math.pow(1.6,z-13);
+  base.land.setStyle({fillColor:css("--land")});
+  base.roads.forEach(l=>l.setStyle({color:css("--road"),weight:clamp(1.6*k,0.8,7),opacity:1}));
+  base.majors.forEach(l=>l.setStyle({color:css("--road-major"),weight:clamp(2.6*k,1.2,10),opacity:1}));
+  base.river.forEach(l=>l.setStyle({color:css("--river"),weight:clamp(9*k,3,60),opacity:1}));
+  base.border.forEach(l=>l.setStyle({color:css("--border"),weight:1.5,dashArray:"6 5",opacity:.8}));
+  map.getPane("basePane").style.display="";
+}
+let tiles=null;
+if(TARGET==="github"){
+  const dark=()=>document.documentElement.dataset.theme==="dark"||(document.documentElement.dataset.theme!=="light"&&matchMedia("(prefers-color-scheme: dark)").matches);
+  tiles=L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,className:"osm-tiles"}).addTo(map);
+  tiles._kpDark=dark;
+}else{ buildBase(); map.on("zoomend",styleBase); }
+
+/* pubs layer */
+const pubDots = L.layerGroup().addTo(map);
+const rankLayer = L.layerGroup().addTo(map);
+function drawPubDots(){
+  pubDots.clearLayers();
+  const c=css("--pub");
+  PUBS.forEach((p,i)=>{
+    const m=L.circleMarker([p[1],p[2]],{renderer:pubRenderer,radius:2.6,weight:0,fillColor:c,fillOpacity:.75});
+    m.on("click",()=>openPub(i));
+    m.bindTooltip(p[0],{direction:"top",offset:[0,-4]});
+    pubDots.addLayer(m);
+  });
+}
+
+/* ---------- people & scoring ---------- */
+function allPeople(){
+  const list=[];
+  const meVisible = S.points.length>0;
+  if(meVisible) list.push({id:S.myId||"me",nick:S.nick,points:S.points,me:true});
+  for(const [id,p] of Object.entries(S.others)) if(id!==S.myId && p.points.length) list.push({id,nick:p.nick,points:p.points,me:false});
+  return list;
+}
+function hashStr(x){ let h=0; for(const ch of String(x)) h=(h*31+ch.charCodeAt(0))|0; return Math.abs(h); }
+function personColor(p,idx){ return S.profiles[p.id]?.color || FALLBACK_COLORS[(p.me&&!S.myId?0:hashStr(p.id))%FALLBACK_COLORS.length]; }
+function personName(p){ return p.nick || S.profiles[p.id]?.name || (p.me?"Ты":"Кто-то"); }
+
+function pointScore(d,r){ if(d<=r) return 1-0.25*(d/r)**2; const x=(d-r)/(0.6*r); return 0.75*Math.exp(-x*x); }
+function prepPerson(p){ const maxW=Math.max(...p.points.map(q=>q.w)); return p.points.map(q=>({lat:q.lat,lng:q.lng,r:q.r,f:0.4+0.6*q.w/maxW})); }
+function scoreAt(prepped,lat,lng){
+  const per=[]; let inside=true;
+  for(const pts of prepped){ let best=0, inn=false; for(const q of pts){ const d=distM(lat,lng,q.lat,q.lng); const s=q.f*pointScore(d,q.r); if(s>best)best=s; if(d<=q.r)inn=true; } per.push(best); if(!inn)inside=false; }
+  const g = !per.length?0 : S.mode==="fair" ? Math.min(...per) : per.reduce((a,b)=>a+b,0)/per.length;
+  return {g,per,inside};
+}
+
+/* heat overlay */
+const HeatLayer = L.Layer.extend({
+  onAdd(m){ this._c=L.DomUtil.create("canvas","heat"); this._c.style.position="absolute"; this._c.style.pointerEvents="none"; m.getPane("heatPane").appendChild(this._c); m.on("moveend resize zoomend",this.redraw,this); m.on("zoomstart",()=>this._c.style.visibility="hidden"); this.redraw(); },
+  onRemove(m){ this._c.remove(); m.off("moveend resize zoomend",this.redraw,this); },
+  redraw(){
+    const c=this._c; if(!c) return; const m=this._map; const size=m.getSize(); const dpr=1;
+    c.width=size.x*dpr; c.height=size.y*dpr; c.style.width=size.x+"px"; c.style.height=size.y+"px";
+    L.DomUtil.setPosition(c, m.containerPointToLayerPoint([0,0]));
+    c.style.visibility="visible";
+    const ctx=c.getContext("2d"); ctx.clearRect(0,0,c.width,c.height);
+    const ppl=visiblePeople(); if(!ppl.length) return;
+    const prepped=ppl.map(prepPerson);
+    const step=7, acc=css("--accent"), bot=css("--bottle");
+    const nw=m.containerPointToLatLng([0,0]), se=m.containerPointToLatLng([size.x,size.y]);
+    const cols=Math.ceil(size.x/step), rows=Math.ceil(size.y/step);
+    const off=document.createElement("canvas"); off.width=cols; off.height=rows; const o=off.getContext("2d");
+    const img=o.createImageData(cols,rows); const A=hexRgb(acc), B=hexRgb(bot);
+    for(let y=0;y<rows;y++){ const lat=nw.lat+(se.lat-nw.lat)*((y+.5)/rows);
+      for(let x=0;x<cols;x++){ const lng=nw.lng+(se.lng-nw.lng)*((x+.5)/cols);
+        const {g,inside}=scoreAt(prepped,lat,lng); const i=(y*cols+x)*4;
+        const col= inside&&ppl.length>1 ? B : A; const a = inside&&ppl.length>1 ? 0.30+0.25*g : Math.pow(g,1.6)*0.5;
+        img.data[i]=col[0]; img.data[i+1]=col[1]; img.data[i+2]=col[2]; img.data[i+3]=Math.round(a*255);
+      } }
+    o.putImageData(img,0,0); ctx.imageSmoothingEnabled=true; ctx.drawImage(off,0,0,cols*step,rows*step);
+  }
+});
+function hexRgb(h){ h=h.replace("#",""); if(h.length===3)h=h.split("").map(x=>x+x).join(""); const n=parseInt(h,16); return [(n>>16)&255,(n>>8)&255,n&255]; }
+const heat = new HeatLayer().addTo(map);
+function visiblePeople(){ return allPeople().filter(p=>!S.hidden.has(p.id)); }
+
+/* circles */
+const circleLayer = L.layerGroup().addTo(map);
+const myLayer = L.layerGroup().addTo(map);
+function drawCircles(){
+  circleLayer.clearLayers(); myLayer.clearLayers();
+  const ppl=allPeople();
+  ppl.forEach((p,idx)=>{
+    if(S.hidden.has(p.id)) return;
+    const col=personColor(p,idx);
+    p.points.forEach((q,qi)=>{
+      if(p.me){
+        const sel=S.selected===q.id;
+        const circ=L.circle([q.lat,q.lng],{renderer:circleRenderer,radius:q.r,color:col,weight:sel?3:2,fillColor:col,fillOpacity:.05+q.w*.008,interactive:false}).addTo(myLayer); circ._qid=q.id;
+        const mk=L.marker([q.lat,q.lng],{draggable:!S.readOnly,autoPan:true,keyboard:true,title:"Твоя точка "+(qi+1),
+          icon:L.divIcon({className:"",html:`<div class="pin${sel?" sel":""}" style="background:${col}"></div>`,iconSize:[18,18],iconAnchor:[9,9]})}).addTo(myLayer);
+        mk.on("click",()=>{S.selected=q.id;render();});
+        mk.on("drag",e=>{const ll=e.target.getLatLng(); q.lat=+ll.lat.toFixed(5); q.lng=+ll.lng.toFixed(5); myLayer.eachLayer(l=>{ if(l instanceof L.Circle && l._qid===q.id) l.setLatLng(ll); });});
+        mk.on("dragend",()=>{S.selected=q.id;changed();});
+      }else{
+        L.circle([q.lat,q.lng],{renderer:circleRenderer,radius:q.r,color:col,weight:1.6,dashArray:"5 5",fillColor:col,fillOpacity:.03+q.w*.006,interactive:false}).addTo(circleLayer);
+        L.circleMarker([q.lat,q.lng],{renderer:circleRenderer,radius:4,color:"#fff",weight:1.5,fillColor:col,fillOpacity:1,interactive:false}).addTo(circleLayer);
+      }
+    });
+  });
+}
+
+/* ranking */
+let ranked=[];
+function computeRanking(){
+  const ppl=visiblePeople(); if(!ppl.length){ranked=[];return {ppl,inside:0};}
+  const prepped=ppl.map(prepPerson); let inside=0;
+  const all=PUBS.map((p,i)=>{const s=scoreAt(prepped,p[1],p[2]); if(s.inside)inside++; return {i,...s};});
+  all.sort((a,b)=>(b.inside-a.inside)*(ppl.length>1?1:0) || b.g-a.g);
+  ranked=all.slice(0,10).filter(r=>r.g>0.02);
+  return {ppl,inside};
+}
+function drawRankPins(){
+  rankLayer.clearLayers();
+  ranked.forEach((r,k)=>{
+    const p=PUBS[r.i];
+    const m=L.marker([p[1],p[2]],{pane:"markerPane",zIndexOffset:1000-k,title:p[0],
+      icon:L.divIcon({className:"",html:`<div class="rankpin${r.inside&&visiblePeople().length>1?" all":""}"><span>${k+1}</span></div>`,iconSize:[24,24],iconAnchor:[12,26]})});
+    m.on("click",()=>openPub(r.i)); rankLayer.addLayer(m);
+  });
+}
+function openPub(i){
+  const p=PUBS[i]; S.selectedPub=i;
+  const ppl=visiblePeople(); const s=scoreAt(ppl.map(prepPerson),p[1],p[2]);
+  const box=el("div",{class:"pop"}, el("h3",{text:p[0]}), p[3]?el("div",{class:"br",text:"Točí: "+p[3]}):null);
+  if(ppl.length){ const t=el("table"); ppl.forEach((pp,k)=>{ const nearest=Math.min(...pp.points.map(q=>distM(p[1],p[2],q.lat,q.lng))); t.append(el("tr",{}, el("td",{}, el("span",{style:`display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;background:${personColor(pp,allPeople().indexOf(pp))}`}), personName(pp)), el("td",{text:`${Math.round(s.per[k]*100)}% · ${fmtR(Math.round(nearest/50)*50)}`}))); }); box.append(t); }
+  const q=encodeURIComponent(p[0]+", Praha");
+  box.append(el("div",{class:"links"}, el("a",{href:`https://mapy.cz/zakladni?q=${q}`,target:"_blank",rel:"noopener",text:"Mapy.cz"}), el("a",{href:`https://www.google.com/maps/search/?api=1&query=${p[1]},${p[2]}`,target:"_blank",rel:"noopener",text:"Google Maps"}), p[4]?el("a",{href:p[4],target:"_blank",rel:"noopener",text:"Сайт"}):null));
+  L.popup({offset:[0,-6],maxWidth:280}).setLatLng([p[1],p[2]]).setContent(box).openOn(map);
+  renderResults();
+}
+
+/* ---------- panel rendering ---------- */
+function renderMine(){
+  const box=$("myPoints"); box.replaceChildren();
+  $("meCount").textContent = S.points.length? `${S.points.length} ${plural(S.points.length,"точка","точки","точек")}` : "";
+  S.points.forEach((q,qi)=>{
+    const tally=el("div",{class:"tally",role:"group","aria-label":"Вес точки"});
+    for(let w=1;w<=10;w++) tally.append(el("button",{type:"button",class:w<=q.w?"on":"","aria-label":`Вес ${w}`,"aria-pressed":String(w===q.w),onclick:e=>{e.stopPropagation();q.w=w;S.selected=q.id;changed();}}));
+    tally.append(el("span",{class:"lbl",text:["","на крайний случай","можно и тут","терпимо","неплохо","нормально","хорошо","удобно","очень хочу","прям сюда","только сюда"][q.w]+" · "+q.w+"/10"}));
+    const out=el("output",{text:fmtR(q.r)});
+    const rng=el("input",{type:"range",id:"r_"+q.id,min:R_MIN,max:R_MAX,step:100,value:q.r,"aria-label":"Радиус",
+      oninput:e=>{q.r=+e.target.value;out.textContent=fmtR(q.r);myLayer.eachLayer(l=>{if(l instanceof L.Circle&&l._qid===q.id)l.setRadius(q.r);});},
+      onchange:()=>changed(), onclick:e=>e.stopPropagation()});
+    const row=el("div",{class:"pt"+(S.selected===q.id?" sel":""),onclick:()=>{S.selected=q.id;map.panTo([q.lat,q.lng]);render();}},
+      el("span",{class:"num",text:String(qi+1).padStart(2,"0")}),
+      el("span",{class:"ttl",text:nearestPlace(q)}),
+      el("button",{type:"button",class:"btn ghost","aria-label":"Удалить точку",text:"убрать",onclick:e=>{e.stopPropagation();S.points=S.points.filter(x=>x!==q);changed();}}),
+      el("div",{class:"sub"}, tally, el("div",{class:"radius"}, rng, out)));
+    if(S.readOnly) row.querySelectorAll("button,input").forEach(b=>b.disabled=true);
+    box.append(row);
+  });
+  if(!S.points.length) box.append(el("div",{class:"empty"}, el("b",{text:"Пока пусто. "}), "Нажми «Поставить точку» и ткни в карту — например, рядом с работой или домом. Точек может быть несколько."));
+  $("addBtn").disabled=S.readOnly;
+  $("addBtn").classList.toggle("armed",S.placing);
+  $("addBtn").textContent = S.placing? "Отмена" : "＋ Поставить точку";
+}
+function nearestPlace(q){ let best=null,bd=1e9; for(const [n,lat,lng] of PLACES){const d=distM(q.lat,q.lng,lat,lng); if(d<bd){bd=d;best=n;}} return bd<1500? "у "+best.replace(/^Staré Město$/,"Starého Města") : "Прага, "+q.lat.toFixed(3)+", "+q.lng.toFixed(3); }
+
+async function renderPeople(){
+  const ppl=allPeople(); const box=$("people"); box.replaceChildren();
+  const ids=ppl.map(p=>p.id).filter(id=>id&&id!=="me");
+  if(S.user && ids.length){ try{ Object.assign(S.profiles, await S.user.profiles(ids)); }catch(e){} }
+  ppl.forEach((p,idx)=>{
+    const prof=S.profiles[p.id]; const col=personColor(p,idx);
+    const chip=el("button",{type:"button",class:"chip"+(S.hidden.has(p.id)?" off":""),"aria-pressed":String(!S.hidden.has(p.id)),title:"Скрыть / показать",
+      onclick:()=>{S.hidden.has(p.id)?S.hidden.delete(p.id):S.hidden.add(p.id);render();}},
+      prof?.avatarUrl? el("img",{src:prof.avatarUrl,alt:""}) : el("span",{class:"sw",style:`background:${col}`}),
+      el("span",{text:personName(p)+(p.me?" (ты)":"")}), el("small",{text:String(p.points.length)}));
+    if(prof?.avatarUrl) chip.style.boxShadow=`inset 0 0 0 2px ${col}`;
+    box.append(chip);
+  });
+  if(!ppl.length) box.append(el("div",{class:"empty",text:"Здесь появятся все, кто отметил точки. Поделись ссылкой на эту страницу с друзьями."}));
+  $("pplCount").textContent = ppl.length? `${ppl.length} ${plural(ppl.length,"человек","человека","человек")}` : "";
+}
+
+let lastStats={ppl:[],inside:0};
+function renderResults(){
+  const {ppl,inside}=lastStats; const ol=$("results"); ol.replaceChildren();
+  $("modeFair").setAttribute("aria-pressed",String(S.mode==="fair")); $("modeAvg").setAttribute("aria-pressed",String(S.mode==="avg"));
+  if(!ppl.length){ $("summary").replaceChildren(); ol.append(el("li",{class:"empty",style:"display:block;cursor:default",text:"Как только кто-то поставит точку, здесь появится десятка пивных, куда удобнее всего дойти."})); return; }
+  const pts=ppl.reduce((a,p)=>a+p.points.length,0);
+  const tail = ppl.length>1 ? [" · ",el("b",{text:String(inside)})," ",plural(inside,"пивная","пивные","пивных")," в пересечении всех"] : [" · из ",el("b",{text:String(PUBS.length)})," пивных Праги"];
+  $("summary").replaceChildren(el("b",{text:String(ppl.length)})," ",plural(ppl.length,"человек","человека","человек")," · ",el("b",{text:String(pts)})," ",plural(pts,"точка","точки","точек"),...tail);
+  ranked.forEach((r,k)=>{
+    const p=PUBS[r.i]; const all=r.inside&&ppl.length>1;
+    const dots=el("span",{class:"dots"}); r.per.forEach((v,j)=>dots.append(el("i",{style:`background:${personColor(ppl[j],allPeople().indexOf(ppl[j]))};opacity:${0.2+0.8*v}`,title:`${personName(ppl[j])}: ${Math.round(v*100)}%`})));
+    const li=el("li",{class:(all?"all ":"")+(S.selectedPub===r.i?"sel":""),tabindex:"0",onclick:()=>{map.flyTo([p[1],p[2]],Math.max(map.getZoom(),15),{duration:.6});openPub(r.i);},onkeydown:e=>{if(e.key==="Enter")e.target.click();}},
+      el("span",{class:"rk",text:String(k+1)}),
+      el("div",{style:"min-width:0"}, el("div",{class:"nm"}, p[0], all?el("span",{class:"pill",text:"всем по пути"}):null), el("div",{class:"br"}, p[3]?"Točí "+p[3]:"", dots)),
+      el("span",{class:"sc",text:Math.round(r.g*100)+"%"}),
+      el("div",{class:"bar"}, el("i",{style:`width:${Math.round(r.g*100)}%`})));
+    ol.append(li);
+  });
+}
+
+let rq=null;
+function render(){ if(rq) return; rq=requestAnimationFrame(()=>{ rq=null;
+  lastStats=computeRanking(); drawCircles(); drawRankPins(); heat.redraw(); renderMine(); renderPeople(); renderResults();
+  $("mapHint").hidden=!S.placing; document.getElementById("app").classList.toggle("placing",S.placing);
+});}
+
+/* ---------- interactions ---------- */
+$("addBtn").onclick=()=>{S.placing=!S.placing;render();};
+map.on("click",e=>{
+  if(!S.placing||S.readOnly) return;
+  if(S.points.length>=20){setStatus("warn","Максимум 20 точек");return;}
+  const q={id:uid(),lat:+e.latlng.lat.toFixed(5),lng:+e.latlng.lng.toFixed(5),r:1000,w:5};
+  S.points.push(q); S.selected=q.id; S.placing=false; changed();
+});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&S.placing){S.placing=false;render();}});
+$("nick").addEventListener("input",e=>{S.nick=e.target.value.slice(0,40);changed(true);});
+$("modeFair").onclick=()=>{S.mode="fair";try{localStorage.setItem("kp_mode","fair")}catch(e){};render();};
+$("modeAvg").onclick=()=>{S.mode="avg";try{localStorage.setItem("kp_mode","avg")}catch(e){};render();};
+
+/* ---------- persistence ---------- */
+let saveTimer=null, saving=Promise.resolve(), dirty=false;
+function localKey(){ return "kp_local"+(S.room?"_"+S.room:""); }
+function changed(textOnly){ dirty=true; if(!textOnly) render(); else renderPeople(); clearTimeout(saveTimer); saveTimer=setTimeout(flush, textOnly?900:500); }
+function flush(){
+  const body={nick:S.nick,points:S.points.map(({id,lat,lng,r,w})=>({id,lat,lng,r,w})),updatedAt:Date.now()};
+  if(!S.online){ try{localStorage.setItem(localKey(),JSON.stringify(body));}catch(e){} dirty=false; return; }
+  setStatus("", "Сохраняем…");
+  saving=saving.then(async()=>{
+    try{ await S.save(body); dirty=false; setStatus("ok","Сохранено · видно всем, у кого есть ссылка"); }
+    catch(e){
+      const c=e?.code||"";
+      if(c==="invalid_argument"||c==="permission-denied"){ S.readOnly=true; setStatus("warn", TARGET==="github"?"Запись запрещена — проверь правила Firestore":"У тебя доступ только на просмотр — попроси владельца дать права участника"); render(); }
+      else if(c==="quota_exceeded"||c==="resource-exhausted"){ setStatus("warn","Хранилище заполнено"); }
+      else { setStatus("warn","Не сохранилось, попробуем ещё раз"); setTimeout(flush,2500); }
+    }
+  });
+}
+function setStatus(kind,text){ $("status").className="status "+(kind||""); $("statusText").textContent=text; }
+
+function loadLocal(){ try{ const d=JSON.parse(localStorage.getItem(localKey())||"null"); if(d){ S.nick=String(d.nick||"").slice(0,40); S.points=sanitizePoints(d.points); } }catch(e){} $("nick").value=S.nick; }
+function goLocal(msg){ loadLocal(); S.placing=!S.points.length; setStatus("warn",msg); render(); }
+
+/* shared: subscribe to everyone's docs (same shape for Claude db and Firestore) */
+function subscribePeople(col){
+  let gotMine=false, settled=false;
+  const timer=setTimeout(()=>{ if(!settled) setStatus("warn","Данные пока не доступны — проверь соединение"); },10000);
+  return col.onSnapshot(snap=>{
+    if(!snap.metadata.fromCache){ settled=true; clearTimeout(timer); }
+    const others={};
+    for(const d of snap.docs){
+      const v=d.data()||{}; const rec={nick:String(v.nick||"").slice(0,40),points:sanitizePoints(v.points)};
+      if(d.id===S.myId){ if(!gotMine && !dirty){ S.nick=rec.nick; S.points=rec.points; $("nick").value=S.nick; } gotMine=true; continue; }
+      others[d.id]=rec;
+    }
+    S.others=others;
+    if(settled && !S.points.length && !S.readOnly && !S.placing && !subscribePeople._armed){ subscribePeople._armed=true; S.placing=true; }
+    if(settled) setStatus(S.readOnly?"warn":"ok", S.readOnly? "Только просмотр: попроси владельца дать права участника" : "Онлайн · изменения друзей приходят сами");
+    render();
+  }, err=>{ clearTimeout(timer); setStatus("warn", err?.code==="permission-denied" ? "Нет доступа к базе — проверь правила Firestore" : "Связь с общими данными потеряна — обнови страницу позже"); });
+}
+
+async function bootClaude(){
+  const use = n => (window.claude && typeof window.claude.use==="function") ? window.claude.use(n).catch(()=>null) : Promise.resolve(null);
+  const [db,user]=await Promise.all([use("db"),use("user")]);
+  S.user=user;
+  const myId = user ? await user.id() : null;
+  if(!db||!myId) return goLocal("Офлайн: точки сохраняются только в этом браузере. Войди в Claude, чтобы видеть друзей.");
+  S.myId=myId; S.online=true; S.save=body=>db.doc("people/"+myId).set(body);
+  if(user.can){ try{ if(await user.can("data.write")===false){ S.readOnly=true; } }catch(e){} }
+  subscribePeople(db.collection("people"));
+}
+
+/* rooms: each meetup is its own link, #r-xxxxxxxx */
+function readRoom(){ const m=/^#(r-[a-z0-9]{6,16})$/.exec(location.hash); return m?m[1]:null; }
+function newRoomId(){ const a=new Uint8Array(6); crypto.getRandomValues(a); return "r-"+Array.from(a,b=>(b%36).toString(36)).join("")+uid().slice(0,2); }
+function setupRoom(){
+  S.room=readRoom();
+  if(!S.room){ S.room=newRoomId(); history.replaceState(null,"",location.pathname+location.search+"#"+S.room); }
+  $("share").hidden=false; $("shareUrl").value=location.href;
+  $("copyBtn").onclick=async()=>{ try{ await navigator.clipboard.writeText(location.href); $("copyBtn").textContent="Скопировано"; }catch(e){ $("shareUrl").select(); $("copyBtn").textContent="Выделено — Ctrl/⌘+C"; } setTimeout(()=>$("copyBtn").textContent="Скопировать",2000); };
+  $("newRoomBtn").onclick=()=>{ location.hash=newRoomId(); };
+  addEventListener("hashchange",()=>location.reload());
+}
+
+async function bootGithub(){
+  setupRoom();
+  const cfg=window.FIREBASE_CONFIG;
+  if(!window.firebase || !cfg || !cfg.apiKey || String(cfg.apiKey).includes("ВСТАВЬ")) return goLocal("Firebase не настроен: точки сохраняются только в этом браузере.");
+  try{
+    firebase.initializeApp(cfg);
+    await firebase.auth().signInAnonymously();
+    const uidF=firebase.auth().currentUser.uid;
+    const col=firebase.firestore().collection("rooms").doc(S.room).collection("people");
+    S.myId=uidF; S.online=true; S.save=body=>col.doc(uidF).set(body);
+    subscribePeople(col);
+  }catch(e){ console.error(e); goLocal("Не удалось подключиться к Firebase ("+(e?.code||"ошибка")+"). Точки пока только в этом браузере."); }
+}
+
+async function boot(){
+  drawPubDots(); styleBase(); render();
+  return TARGET==="github" ? bootGithub() : bootClaude();
+}
+
+/* theme changes: restyle canvas layers */
+const reTheme=()=>{ styleBase(); drawPubDots(); render(); };
+try{ matchMedia("(prefers-color-scheme: dark)").addEventListener("change",reTheme); }catch(e){}
+new MutationObserver(reTheme).observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
+
+boot();
+</script>
+
+</body>
+</html>
